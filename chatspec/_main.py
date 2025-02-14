@@ -9,17 +9,16 @@ as well as message formatting / tool conversion, etc.
 import logging
 import docstring_parser
 import hashlib
+import msgspec
 from cachetools import cached, TTLCache
-from dataclasses import is_dataclass
-from inspect import signature
-import json
+from dataclasses import is_dataclass, fields as dataclass_fields
+from inspect import signature, getdoc
 from pydantic import BaseModel, Field, create_model
 
 from typing import (
     Any,
     Union,
     List,
-    Generator,
     Iterable,
     Literal,
     Optional,
@@ -27,16 +26,10 @@ from typing import (
     Callable,
     Type,
     Sequence,
+    Set,
     get_type_hints,
-    get_args,
-    get_origin
 )
-from .types import (
-    Completion,
-    CompletionChunk,
-    Message,
-    Tool
-)
+from .types import Completion, CompletionChunk, Message, Tool
 
 __all__ = [
     "is_completion",
@@ -52,7 +45,7 @@ __all__ = [
     "dump_stream_to_message",
     "dump_stream_to_completion",
     "parse_model_from_completion",
-    "parse_model_from_steam",
+    "parse_model_from_stream",
     "print_stream",
     "normalize_messages",
     "normalize_system_prompt",
@@ -61,6 +54,7 @@ __all__ = [
     "convert_to_pydantic_model",
     "create_literal_pydantic_model",
     "stream_passthrough",
+    "markdownify",
 ]
 
 
@@ -73,13 +67,18 @@ logger = logging.getLogger("chatspec")
 #
 # cache
 _chatspec_cache = TTLCache(maxsize=1000, ttl=3600)
+
+
 #
 # exception
 class ChatSpecError(Exception):
     """
     Base exception for all errors raised by the `chatspec` library.
     """
+
     pass
+
+
 # ------------------------------------------------------------------------------
 
 
@@ -88,7 +87,7 @@ class ChatSpecError(Exception):
 # ------------------------------------------------------------------------------
 
 
-def _get_value(obj : Any, key : str, default : Any = None) -> Any:
+def _get_value(obj: Any, key: str, default: Any = None) -> Any:
     """
     Helper function to retrieve a value from an object either as an attribute or as a dictionary key.
     """
@@ -101,9 +100,9 @@ def _get_value(obj : Any, key : str, default : Any = None) -> Any:
     except Exception as e:
         logger.debug(f"Error getting value for key {key}: {e}")
         return default
-    
-    
-def _make_hashable(obj : Any) -> str:
+
+
+def _make_hashable(obj: Any) -> str:
     """
     Helper function to make an object hashable by converting it to a stable hash string.
     Uses SHA-256 to generate a consistent hash representation of any object.
@@ -111,9 +110,9 @@ def _make_hashable(obj : Any) -> str:
     if isinstance(obj, dict):
         # Sort dict items for consistent hashing
         obj = {k: obj[k] for k in sorted(obj.keys())}
-    # Convert to JSON string with sorted keys for consistent serialization
-    json_str = json.dumps(obj, sort_keys=True, default=str)
-    return hashlib.sha256(json_str.encode()).hexdigest()
+    # Convert to JSON bytes with sorted keys for consistent serialization using msgspec
+    json_bytes = msgspec.json.encode(obj, sort_keys=True)
+    return hashlib.sha256(json_bytes).hexdigest()
 
 
 _TYPE_MAPPING = {
@@ -144,15 +143,16 @@ class _StreamPassthrough:
     """
     Synchronous wrapper for a streamed object wrapped by
     `.passthrough()`.
-    
+
     Once iterated, all chunks are stored in .chunks, and the full
     object can be 'restreamed' as well as accessed in its entirety.
     """
-    def __init__(self, stream : Any):
+
+    def __init__(self, stream: Any):
         self._stream = stream
-        self.chunks : Iterable[CompletionChunk] = []
+        self.chunks: Iterable[CompletionChunk] = []
         self._consumed = False
-        
+
     def __iter__(self):
         if not self._consumed:
             for chunk in self._stream:
@@ -169,11 +169,12 @@ class _AsyncStreamPassthrough:
     Asynchronous wrapper for a streamed object wrapped by
     `.passthrough()`.
     """
-    def __init__(self, async_stream : Any):
+
+    def __init__(self, async_stream: Any):
         self._async_stream = async_stream
-        self.chunks : List[CompletionChunk] = []
+        self.chunks: List[CompletionChunk] = []
         self._consumed = False
-        
+
     async def __aiter__(self):
         if not self._consumed:
             async for chunk in self._async_stream:
@@ -183,28 +184,28 @@ class _AsyncStreamPassthrough:
         else:
             for chunk in self.chunks:
                 yield chunk
-                
+
     async def consume(self) -> List[CompletionChunk]:
         """
         Consume the stream and return all chunks as a list.
         """
         return list(self)
-    
-    
+
+
 # primary passthrough method
 # this is the first 'public' object defined in this script
 # it is able to wrap a streamed object, and return a stream that can be
 # used multiple times
-def stream_passthrough(completion : Any) -> Iterable[CompletionChunk]:
+def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
     """
     Wrap a chat completion stream within a cached object that can
     be iterated and consumed over multiple times.
-    
+
     Supports both synchronous and asynchronous streams.
-    
+
     Args:
         completion: The chat completion stream to wrap.
-        
+
     Returns:
         An iterable of completion chunks.
     """
@@ -224,21 +225,21 @@ def stream_passthrough(completion : Any) -> Iterable[CompletionChunk]:
 # ------------------------------------------------------------------------------
 # 'Core' Methods
 # (instance checking & validation methods)
-# 
+#
 # All methods in this block are cached for performance, and are meant to
 # be used as 'stdlib' style methods.
 # ------------------------------------------------------------------------------
 
 
 @cached(
-    cache = _chatspec_cache,
-    key = lambda completion : _make_hashable(completion),
+    cache=_chatspec_cache,
+    key=lambda completion: _make_hashable(completion),
 )
-def is_completion(completion : Any) -> bool:
+def is_completion(completion: Any) -> bool:
     """
     Checks if a given object is a valid chat completion.
-    
-    Supports both standard completion objects, as well as 
+
+    Supports both standard completion objects, as well as
     streamed responses.
     """
     try:
@@ -263,17 +264,17 @@ def is_completion(completion : Any) -> bool:
 
 
 @cached(
-    cache = _chatspec_cache,
-    key = lambda completion : _make_hashable(completion),
+    cache=_chatspec_cache,
+    key=lambda completion: _make_hashable(completion),
 )
-def is_stream(completion : Any) -> bool:
+def is_stream(completion: Any) -> bool:
     """
     Checks if the given object is a valid stream of 'chat completion'
     chunks.
-    
+
     Args:
         completion: The object to check.
-        
+
     Returns:
         True if the object is a valid stream, False otherwise.
     """
@@ -294,27 +295,33 @@ def is_stream(completion : Any) -> bool:
     except Exception as e:
         logger.debug(f"Error checking if object is stream: {e}")
         return False
-        
+
 
 @cached(
-    cache = _chatspec_cache,
-    key = lambda message : _make_hashable(message),
+    cache=_chatspec_cache,
+    key=lambda message: _make_hashable(message),
 )
-def is_message(message : Any) -> bool:
+def is_message(message: Any) -> bool:
     """
-    Checks if a given object is a valid chat message. 
+    Checks if a given object is a valid chat message.
     (This allows the 'developer' role from the OpenAI specific API.)
-    
+
     Args:
         message: The object to check.
-        
+
     Returns:
         True if the object is a valid message, False otherwise.
     """
     try:
         if not isinstance(message, dict):
             return False
-        allowed_roles = {"assistant", "user", "system", "tool", "developer"}
+        allowed_roles = {
+            "assistant",
+            "user",
+            "system",
+            "tool",
+            "developer",
+        }
         role = message.get("role")
         if role not in allowed_roles:
             return False
@@ -327,19 +334,19 @@ def is_message(message : Any) -> bool:
     except Exception as e:
         logger.debug(f"Error validating message: {e}")
         return False
-    
-    
+
+
 @cached(
-    cache = _chatspec_cache,
-    key = lambda tool : _make_hashable(tool),
+    cache=_chatspec_cache,
+    key=lambda tool: _make_hashable(tool),
 )
-def is_tool(tool : Any) -> bool:
+def is_tool(tool: Any) -> bool:
     """
     Checks if a given object is a valid tool in the OpenAI API.
-    
+
     Args:
         tool: The object to check.
-        
+
     Returns:
         True if the object is a valid tool, False otherwise.
     """
@@ -354,19 +361,19 @@ def is_tool(tool : Any) -> bool:
     except Exception as e:
         logger.debug(f"Error validating tool: {e}")
         return False
-    
-  
+
+
 @cached(
-    cache = _chatspec_cache,
-    key = lambda messages : _make_hashable(messages),
+    cache=_chatspec_cache,
+    key=lambda messages: _make_hashable(messages),
 )
-def has_system_prompt(messages : List[Message]) -> bool:
+def has_system_prompt(messages: List[Message]) -> bool:
     """
     Checks if the message thread contains at least one system prompt.
-    
+
     Args:
         messages: The list of messages to check.
-        
+
     Returns:
         True if the message thread contains at least one system prompt,
         False otherwise.
@@ -386,8 +393,8 @@ def has_system_prompt(messages : List[Message]) -> bool:
     except Exception as e:
         logger.debug(f"Error checking for system prompt: {e}")
         raise
-    
-    
+
+
 @cached(
     cache=_chatspec_cache,
     key=lambda completion: _make_hashable(completion),
@@ -421,8 +428,8 @@ def has_tool_call(completion: Any) -> bool:
     except Exception as e:
         logger.debug(f"Error checking for tool call: {e}")
         return False
-    
-    
+
+
 # ------------------------------------------------------------------------------
 # Extraction
 # ------------------------------------------------------------------------------
@@ -500,8 +507,8 @@ def dump_stream_to_message(stream: Any) -> Message:
     except Exception as e:
         logger.debug(f"Error dumping stream to message: {e}")
         raise
-    
-    
+
+
 def dump_stream_to_completion(stream: Any) -> Completion:
     """
     Aggregates a stream of ChatCompletionChunks into a single Completion.
@@ -510,47 +517,28 @@ def dump_stream_to_completion(stream: Any) -> Completion:
         choices = []
         for chunk in stream:
             delta = _get_value(
-                _get_value(chunk.choices[0], "delta", {}), 
-                "content",
-                ""
+                _get_value(chunk.choices[0], "delta", {}), "content", ""
             )
-            choices.append({
-                "message": {
-                    "role": "assistant",
-                    "content": delta
-                }
-            })
-        
+            choices.append(
+                {"message": {"role": "assistant", "content": delta}}
+            )
+
         return Completion(
-            id="stream",
-            choices=choices,
-            created=0,
-            model="stream"
+            id="stream", choices=choices, created=0, model="stream"
         )
     except Exception as e:
         logger.debug(f"Error dumping stream to completion: {e}")
         raise
-     
+
 
 def parse_model_from_completion(
-    completion: Any, model: Type[BaseModel]
+    completion: Any, model: type[BaseModel]
 ) -> BaseModel:
     """
     Extracts the JSON content from a non-streaming chat completion and initializes
     and returns an instance of the provided Pydantic model.
-
-    Args:
-        completion: A chat completion object (non-streaming) that contains a 'choices' field.
-        model: A Pydantic model class to instantiate.
-
-    Returns:
-        An instance of the provided Pydantic model populated with data parsed from the JSON content.
-
-    Raises:
-        ValueError: If the content cannot be found or if the JSON cannot be parsed.
     """
     try:
-        # Try to get the choices from the completion
         choices = getattr(completion, "choices", None) or completion.get(
             "choices"
         )
@@ -567,7 +555,7 @@ def parse_model_from_completion(
             raise ValueError("No content found in the completion message.")
 
         try:
-            data = json.loads(content)
+            data = msgspec.json.decode(content)
         except Exception as e:
             raise ValueError(f"Error parsing JSON content: {e}")
 
@@ -578,24 +566,13 @@ def parse_model_from_completion(
 
 
 def parse_model_from_steam(
-    stream: Any, model: Type[BaseModel]
+    stream: Any, model: type[BaseModel]
 ) -> BaseModel:
     """
     Aggregates a stream of chat completion chunks, extracts the JSON content from the
     aggregated message, and initializes and returns an instance of the provided Pydantic model.
-
-    Args:
-        stream: An iterable (stream) of chat completion chunks.
-        model: A Pydantic model class to instantiate.
-
-    Returns:
-        An instance of the provided Pydantic model populated with data parsed from the aggregated JSON content.
-
-    Raises:
-        ValueError: If no content is found or if the JSON cannot be parsed.
     """
     try:
-        # Use the existing helper to aggregate the stream into a complete message
         message = dump_stream_to_message(stream)
         content = message.get("content")
 
@@ -605,7 +582,7 @@ def parse_model_from_steam(
             )
 
         try:
-            data = json.loads(content)
+            data = msgspec.json.decode(content)
         except Exception as e:
             raise ValueError(
                 f"Error parsing JSON content from stream: {e}"
@@ -717,19 +694,9 @@ def was_tool_called(
         return False
 
 
-def run_tool(completion: Any, tool: Callable) -> Any:
+def run_tool(completion: Any, tool: callable) -> Any:
     """
     Executes a tool based on parameters extracted from a completion object.
-
-    Args:
-        completion: A chat completion object (streaming or non-streaming).
-        tool: The callable function to run.
-
-    Returns:
-        The result of running the tool with the extracted parameters.
-
-    Raises:
-        ValueError: If the tool wasn't called or if arguments are invalid.
     """
     try:
         tool_calls = get_tool_calls(completion)
@@ -748,18 +715,16 @@ def run_tool(completion: Any, tool: Callable) -> Any:
                 f"Tool '{tool_name}' was not called in this completion"
             )
 
-        import json
-
         try:
             args_str = matching_call["function"]["arguments"]
-            args = json.loads(args_str)
+            args = msgspec.json.decode(args_str)
             if isinstance(args, dict):
                 return tool(**args)
             else:
                 raise ValueError(
                     f"Invalid arguments format for tool '{tool_name}'"
                 )
-        except json.JSONDecodeError:
+        except msgspec.DecodeError:
             raise ValueError(
                 f"Invalid JSON in arguments for tool '{tool_name}'"
             )
@@ -1319,3 +1284,381 @@ def create_literal_pydantic_model(
             ),
         ),
     )
+
+
+# ------------------------------------------------------------------------------
+# Markdown Formatting
+# this is used to format text, or any other arbitrary 'thing' as a formatted
+# markdown string.
+# ------------------------------------------------------------------------------
+
+
+def _get_field_description(field_info: Any) -> Optional[str]:
+    """Extract field description from Pydantic field info.
+
+    Args:
+        field_info: The Pydantic field info object to extract description from
+
+    Returns:
+        The field description if available, None otherwise
+    """
+    try:
+        if hasattr(field_info, "__doc__") and field_info.__doc__:
+            doc = docstring_parser.parse(field_info.__doc__)
+            if doc.short_description:
+                return doc.short_description
+
+        if hasattr(field_info, "description"):
+            return field_info.description
+
+        return None
+    except Exception:
+        return None
+
+
+def _format_docstring(
+    doc_dict: dict, prefix: str = "", compact: bool = False
+) -> str:
+    """Format parsed docstring into markdown.
+
+    Args:
+        doc_dict: Dictionary containing parsed docstring sections
+        prefix: String to prepend to each line for indentation
+        compact: If True, produces more compact output
+
+    Returns:
+        Formatted markdown string
+    """
+    try:
+        if not doc_dict:
+            return ""
+
+        if isinstance(doc_dict, str):
+            doc = docstring_parser.parse(doc_dict)
+        else:
+            doc = docstring_parser.parse(str(doc_dict))
+
+        parts = []
+
+        if doc.short_description:
+            parts.append(f"{prefix}_{doc.short_description}_")
+
+        if doc.long_description:
+            parts.append(f"{prefix}_{doc.long_description}_")
+
+        if doc.params:
+            parts.append(f"{prefix}_Parameters:_")
+            for param in doc.params:
+                type_str = (
+                    f": {param.type_name}" if param.type_name else ""
+                )
+                parts.append(
+                    f"{prefix}  - `{param.arg_name}{type_str}` - {param.description}"
+                )
+
+        if doc.returns:
+            parts.append(f"{prefix}_Returns:_ {doc.returns.description}")
+
+        if doc.raises:
+            parts.append(f"{prefix}_Raises:_")
+            for exc in doc.raises:
+                parts.append(
+                    f"{prefix}  - `{exc.type_name}` - {exc.description}"
+                )
+
+        return "\n".join(parts)
+    except Exception:
+        return str(doc_dict)
+
+
+@cached(
+    cache=_chatspec_cache,
+    key=lambda cls: _make_hashable(cls),
+)
+def get_type_name(cls: Any) -> str:
+    """Get a clean type name for display"""
+    # Handle None type
+    if cls is None:
+        return "None"
+    # Handle basic types with __name__ attribute
+    if hasattr(cls, "__name__"):
+        return cls.__name__
+    # Handle typing types like Optional, List etc
+    if hasattr(cls, "__origin__"):
+        # Get the base type (List, Optional etc)
+        origin = cls.__origin__.__name__
+        # Handle special case of Optional which is really Union[T, None]
+        if (
+            origin == "Union"
+            and len(cls.__args__) == 2
+            and cls.__args__[1] is type(None)
+        ):
+            return f"Optional[{get_type_name(cls.__args__[0])}]"
+        # For other generic types, recursively get names of type arguments
+        args = ", ".join(get_type_name(arg) for arg in cls.__args__)
+        return f"{origin}[{args}]"
+
+    # Fallback for any other types
+    return str(cls)
+
+
+def _parse_docstring(obj: Any) -> Optional[dict]:
+    """
+    Extract and parse docstring from an object using docstring-parser.
+
+    Returns:
+        Dictionary containing parsed docstring components:
+        - short_description: Brief description
+        - long_description: Detailed description
+        - params: List of parameters
+        - returns: Return value description
+        - raises: List of exceptions
+    """
+    doc = getdoc(obj)
+    if not doc:
+        return None
+
+    try:
+        parsed = docstring_parser.parse(doc)
+        result = {
+            "short": parsed.short_description,
+            "long": parsed.long_description,
+            "params": [
+                (p.arg_name, p.type_name, p.description)
+                for p in parsed.params
+            ],
+            "returns": parsed.returns.description
+            if parsed.returns
+            else None,
+            "raises": [
+                (e.type_name, e.description) for e in parsed.raises
+            ],
+        }
+        return {k: v for k, v in result.items() if v}
+    except:
+        # Fallback to simple docstring if parsing fails
+        return {"short": doc.strip()}
+
+
+# -----------------------------------------------------------------------------
+# Public API: markdownify
+# -----------------------------------------------------------------------------
+
+
+@cached(
+    cache=_chatspec_cache,
+    key=lambda target: _make_hashable(target),
+)
+def markdownify(
+    target: Any,
+    indent: int = 0,
+    code_block: bool = False,
+    compact: bool = False,
+    show_types: bool = True,
+    show_title: bool = True,
+    show_bullets: bool = True,
+    show_docs: bool = True,
+    bullet_style: str = "-",
+    _visited: set[int] | None = None,
+) -> str:
+    """
+    Formats a target object into markdown optimized for LLM prompts.
+    """
+    visited = _visited or set()
+    obj_id = id(target)
+    if obj_id in visited:
+        return "<circular>"
+    visited.add(obj_id)
+
+    prefix = "  " * indent
+    bullet = f"{bullet_style} " if show_bullets else ""
+
+    if target is None or isinstance(target, (str, int, float, bool)):
+        return str(target)
+    if isinstance(target, bytes):
+        return f"b'{target.hex()}'"
+
+    # Handle Pydantic models
+    try:
+        if isinstance(target, BaseModel) or (
+            isinstance(target, type) and issubclass(target, BaseModel)
+        ):
+            is_class = isinstance(target, type)
+            model_name = (
+                target.__name__ if is_class else target.__class__.__name__
+            )
+
+            if code_block:
+                data = (
+                    target.model_dump()
+                    if not is_class
+                    else {
+                        field: f"{get_type_name(field_info.annotation)}"
+                        if show_types
+                        else "..."
+                        for field, field_info in target.model_fields.items()
+                    }
+                )
+                json_str = msgspec.json.encode(
+                    data, sort_keys=True, indent=2
+                ).decode("utf-8")
+                return f"```json\n{json_str}\n```"
+
+            header_parts = [f"{prefix}{bullet}**{model_name}**:"]
+            if show_docs:
+                try:
+                    doc_dict = _parse_docstring(target)
+                except Exception as e:
+                    logger.warning(
+                        f"Error parsing docstring for {model_name}: {e}"
+                    )
+                    doc_dict = None
+                if doc_dict:
+                    doc_md = _format_docstring(
+                        doc_dict, prefix + "  ", compact
+                    )
+                    if doc_md:
+                        header_parts.append(doc_md)
+
+            header = "\n".join(header_parts) if show_title else ""
+
+            fields = (
+                target.model_fields.items()
+                if is_class
+                else target.model_dump().items()
+            )
+            field_lines = []
+            indent_step = 1 if compact else 2
+            field_prefix = prefix + ("  " if not compact else "")
+
+            for key, value in fields:
+                field_info = target.model_fields[key] if is_class else None
+                field_value = (
+                    get_type_name(value.annotation) if is_class else value
+                )
+                field_line = [
+                    f"{field_prefix}{bullet}**{key}**: {field_value}"
+                ]
+                if (
+                    show_docs
+                    and field_info
+                    and (desc := _get_field_description(field_info))
+                ):
+                    field_line.append(f"{field_prefix}  _{desc}_")
+                rendered = markdownify(
+                    field_value,
+                    indent + indent_step,
+                    code_block,
+                    compact,
+                    show_types,
+                    show_title,
+                    show_bullets,
+                    show_docs,
+                    bullet_style,
+                    visited.copy(),
+                )
+                field_lines.extend(field_line)
+
+            return (
+                "\n".join(filter(None, [header] + field_lines))
+                if show_title
+                else "\n".join(field_lines)
+            )
+    except Exception as e:
+        logger.error(
+            f"Error formatting pydantic model target {target} to markdown: {e}"
+        )
+        raise e
+
+    # Handle collections
+    if isinstance(target, (list, tuple, set)):
+        if not target:
+            return (
+                "[]"
+                if isinstance(target, list)
+                else "()"
+                if isinstance(target, tuple)
+                else "{}"
+            )
+
+        if code_block and isinstance(target[0], (dict, BaseModel)):
+            json_str = msgspec.json.encode(
+                list(target), sort_keys=True, indent=2
+            ).decode("utf-8")
+            return f"```json\n{json_str}\n```"
+
+        type_name = target.__class__.__name__ if show_types else ""
+        header = (
+            f"{prefix}{bullet}**{type_name}**:"
+            if show_types and show_title
+            else f"{prefix}{bullet}"
+        )
+        indent_step = 1 if compact else 2
+        item_prefix = prefix + ("  " if not compact else "")
+
+        items = [
+            f"{item_prefix}{bullet}{markdownify(item, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, visited.copy())}"
+            for item in target
+        ]
+        return (
+            "\n".join([header] + items)
+            if show_types and show_title
+            else "\n".join(items)
+        )
+
+    # Handle dictionaries
+    if isinstance(target, dict):
+        if not target:
+            return "{}"
+
+        if code_block:
+            json_str = msgspec.json.encode(
+                target, sort_keys=True, indent=2
+            ).decode("utf-8")
+            return f"```json\n{json_str}\n```"
+
+        type_name = target.__class__.__name__ if show_types else ""
+        header = (
+            f"{prefix}{bullet}**{type_name}**:"
+            if show_types and show_title
+            else f"{prefix}{bullet}"
+        )
+        indent_step = 1 if compact else 2
+        item_prefix = prefix + ("  " if not compact else "")
+
+        items = [
+            f"{item_prefix}{bullet}**{key}**: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, visited.copy())}"
+            for key, value in target.items()
+        ]
+        return (
+            "\n".join([header] + items)
+            if show_types and show_title
+            else "\n".join(items)
+        )
+
+    # Handle dataclasses
+    if is_dataclass(target):
+        type_name = target.__class__.__name__ if show_types else ""
+        header = (
+            f"{prefix}{bullet}**{type_name}**:"
+            if show_types and show_title
+            else f"{prefix}{bullet}"
+        )
+        indent_step = 1 if compact else 2
+        item_prefix = prefix + ("  " if not compact else "")
+
+        fields_list = [
+            (f.name, getattr(target, f.name))
+            for f in dataclass_fields(target)
+        ]
+        items = [
+            f"{item_prefix}{bullet}**{name}**: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, visited.copy())}"
+            for name, value in fields_list
+        ]
+        return (
+            "\n".join([header] + items)
+            if show_types and show_title
+            else "\n".join(items)
+        )
+
+    return str(target)
