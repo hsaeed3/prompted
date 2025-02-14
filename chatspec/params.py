@@ -1,5 +1,5 @@
 """
-💭 chatspec.params
+## 💭 chatspec.params
 
 Contains various types used specifically as parameters when creating chat
 completions.
@@ -15,22 +15,18 @@ from typing import (
 )
 from typing_extensions import TypeAlias, TypedDict, Required
 
-from .types import (
-    Message,
-    Tool,
-    Function
-)
+from .types import Message, Tool, Function
 
 
 # ----------------------------------------------------------------------------
 # General Params
-# 
+#
 # some of these are opinionated (or contain opinionated defaults or options)
 # (i made this library for myself, so .... )
 # ----------------------------------------------------------------------------
 
 
-MessagesParam : TypeAlias = Iterable[Message]
+MessagesParam: TypeAlias = Iterable[Message]
 """
 The messages to use when creating a chat completion
 """
@@ -44,11 +40,9 @@ ChatModel = Literal[
     "chatgpt-4o-latest",
     "gpt-4-turbo",
     "gpt-4",
-    
-    "claude-3-5-haiku-latest", 
+    "claude-3-5-haiku-latest",
     "claude-3-5-sonnet-latest",
     "claude-3-opus-latest",
-    
     # Anthropic Models
     "anthropic/claude-3-5-haiku-latest",  # Vision
     "anthropic/claude-3-5-sonnet-latest",  # Vision
@@ -120,15 +114,13 @@ this is in the litellm format
 (opinionation to 100%)
 """
 
-ModelParam : TypeAlias = Union[
-    str, ChatModel
-]
+ModelParam: TypeAlias = Union[str, ChatModel]
 """
 The model to use when creating a chat completion.
 """
 
 
-BaseURLParam : TypeAlias = Union[
+BaseURLParam: TypeAlias = Union[
     str,
     # openai
     Literal["https://api.openai.com/v1"],
@@ -160,6 +152,7 @@ class FunctionCallParam(TypedDict):
     """
     A dictionary representing a function call for a chat completion.
     """
+
     name: Required[str]
     """
     The name of the function to call.
@@ -170,7 +163,7 @@ class FunctionCallParam(TypedDict):
     """
 
 
-ToolChoiceParam : TypeAlias = Literal["auto", "none", "required"]
+ToolChoiceParam: TypeAlias = Literal["auto", "none", "required"]
 """
 The tool choice to use when creating a chat completion.
 
@@ -180,7 +173,7 @@ The tool choice to use when creating a chat completion.
 """
 
 
-ModalitiesParam : TypeAlias = Iterable[Literal["text", "image"]]
+ModalitiesParam: TypeAlias = Iterable[Literal["text", "image"]]
 """
 The modalities to use when creating a chat completion.
 
@@ -193,6 +186,7 @@ class PredictionParam(TypedDict):
     """
     A dictionary representing a prediction for chat completion content matching.
     """
+
     content: Required[Union[str, Iterable[Dict[str, str]]]]
     """
     The content that should be matched when generating a model response. If 
@@ -203,23 +197,35 @@ class PredictionParam(TypedDict):
     """
     The type of the predicted content. Always "content" for this type.
     """
-    
-    
+
+
 class AudioParam(TypedDict):
     """
     A dictionary representing an audio input for a chat completion.
     """
+
     format: Required[Literal["wav", "mp3", "flac", "opus", "pcm16"]]
     """
     The format of the audio input.
     """
-    voice: Required[Literal["alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"]]
+    voice: Required[
+        Literal[
+            "alloy",
+            "ash",
+            "ballad",
+            "coral",
+            "echo",
+            "sage",
+            "shimmer",
+            "verse",
+        ]
+    ]
     """
     The voice to use for the audio input.
     """
 
 
-ReasoningEffortParam : TypeAlias = Literal["low", "medium", "high"]
+ReasoningEffortParam: TypeAlias = Literal["low", "medium", "high"]
 """
 The reasoning effort to use when creating a chat completion.
 """
@@ -229,21 +235,23 @@ class ResponseFormatParam(TypedDict):
     """
     A dictionary representing a response format for a chat completion.
     """
+
     type: Required[Literal["text", "json_object", "json_schema"]]
     """
     The type of the response format.
     """
-    
+
 
 class StreamOptionsParam(TypedDict):
     """
     A dictionary representing stream options for a chat completion.
     """
+
     include_usage: Required[bool]
     """
     Whether to include usage information in the stream.
     """
-    
+
 
 # ----------------------------------------------------------------------------
 # Params Object
@@ -253,44 +261,36 @@ class StreamOptionsParam(TypedDict):
 class Params(TypedDict):
     """
     A dictionary representing the parameters for a chat completion.
-    
+
     (This is a convenience object)
     """
-    messages : MessagesParam
-    model : ModelParam
-    audio : Optional[AudioParam]
-    frequency_penalty : Optional[float]
-    function_call : Optional[FunctionCallParam]
-    functions : Optional[Iterable[Function]]
-    logit_bias : Optional[Dict[str, int]]
-    logprobs : Optional[bool]
-    max_completion_tokens : Optional[int]
-    max_tokens : Optional[int]
-    metadata : Optional[Dict[str, str]]
-    modalities : Optional[ModalitiesParam]
-    n : Optional[int]
-    parallel_tool_calls : Optional[bool]
-    prediction : Optional[PredictionParam]
-    presence_penalty : Optional[float]  
-    reasoning_effort : Optional[ReasoningEffortParam]
-    response_format : Optional[ResponseFormatParam]
-    seed : Optional[int]
-    service_tier : Optional[Literal["auto", "default"]]
-    stop : Optional[Union[str, List[str]]]
-    store : Optional[bool]
-    stream : Optional[bool]
-    temperature : Optional[float]
-    top_p : Optional[float]
-    tools : Optional[Iterable[Tool]]
-    tool_choice : Optional[ToolChoiceParam]
-    top_logprobs : Optional[int]
-    user : Optional[str]
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
+    messages: MessagesParam
+    model: ModelParam
+    audio: Optional[AudioParam]
+    frequency_penalty: Optional[float]
+    function_call: Optional[FunctionCallParam]
+    functions: Optional[Iterable[Function]]
+    logit_bias: Optional[Dict[str, int]]
+    logprobs: Optional[bool]
+    max_completion_tokens: Optional[int]
+    max_tokens: Optional[int]
+    metadata: Optional[Dict[str, str]]
+    modalities: Optional[ModalitiesParam]
+    n: Optional[int]
+    parallel_tool_calls: Optional[bool]
+    prediction: Optional[PredictionParam]
+    presence_penalty: Optional[float]
+    reasoning_effort: Optional[ReasoningEffortParam]
+    response_format: Optional[ResponseFormatParam]
+    seed: Optional[int]
+    service_tier: Optional[Literal["auto", "default"]]
+    stop: Optional[Union[str, List[str]]]
+    store: Optional[bool]
+    stream: Optional[bool]
+    temperature: Optional[float]
+    top_p: Optional[float]
+    tools: Optional[Iterable[Tool]]
+    tool_choice: Optional[ToolChoiceParam]
+    top_logprobs: Optional[int]
+    user: Optional[str]
