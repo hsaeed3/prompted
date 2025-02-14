@@ -1,0 +1,90 @@
+[project]
+
+# ------------------------------------------------------------------------
+# Base Metadata
+# ------------------------------------------------------------------------
+
+# chatspec
+name = "chatspec"
+version = "0.0.1"
+
+description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
+authors = [
+    { name = "Hammad Saeed", email = "hvmmad@gmail.com" }
+]
+
+readme = "README.md"
+license = { file = "LICENSE" }
+
+requires-python = ">=3.10"
+
+dependencies = [
+]
+
+# ------------------------------------------------------------------------
+# Dependency Groups
+# ------------------------------------------------------------------------
+
+
+[dependency-groups]
+dev = [
+    # core dev tools
+    # i love astral.sh
+    "ruff",
+    "uv",
+    # tests
+    "pytest",
+    "pytest-asyncio",
+]
+
+
+# ------------------------------------------------------------------------
+# Build System & Tools
+# ------------------------------------------------------------------------
+
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+# == addition for zed IDE's (could be removed in future) ==
+# this is used to tell zed what venv to use for the python interpreter
+# assumes venv is at the root of the project
+# this is purely for dev
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+
+
+# exclude docs/ dir
+[tool.hatch.build]
+exclude = ["docs/"]
+
+
+# ------------------------------------------------------------------------
+# RUFF
+# ------------------------------------------------------------------------
+
+
+# == ruff config ==
+[tool.ruff]
+# == base / core linting config ==
+target-version = "py310"
+# line length & indents
+line-length = 75
+indent-width = 4
+# == ruff linting config ==
+[tool.ruff.lint]
+# ensure '_' namespace is protected if vars are unused
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+# == ruff formatting config ==
+[tool.ruff.format]
+# strings in nanograph are double quoted
+quote-style = "double"
+# indent using spaces not tabs for consistency & more robust formatting
+indent-style = "space"
+# respect training commas
+skip-magic-trailing-comma = false
+# detect appropriate line ending
+line-ending = "auto"
