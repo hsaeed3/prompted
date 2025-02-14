@@ -2,6 +2,8 @@
 
 Simple types &amp; utilities built for the OpenAI Chat Completions API specification.
 
+[![](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+
 ## 📦 Installation
 
 ```bash
@@ -127,4 +129,3 @@ state.receive_message_from(state2, "i am me")
 print(state.last_message)
 # >>> {'content': '[EXTERNAL from yu]: i am me', 'role': 'user'}
 ```
-
