@@ -1,237 +1,478 @@
 """
-💭 chatspec.state
+## 💭 chatspec.state
 
-Contains a 'State' class used as a message manager & tool registry.
-Now extended with identification_context logic for inter-agent communications.
+Contains the `State` class, a manager for messages, tools and other
+contextual information used in chat completions in a conversational
+context.
 """
 
-from contextlib import contextmanager
+import msgspec
 from copy import deepcopy
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from functools import cached_property
-from typing import Any, Dict, List, Optional, Union, Generator, Callable
-from typing_extensions import TypedDict
+from cachetools import cached, TTLCache
+from pydantic import BaseModel
+import uuid
 
-from .types import Message, Params
-from .utils import (
+from typing_extensions import TypedDict, Required, NotRequired
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Union,
+    TypeVar,
+)
+from .types import (
+    Message,
+    Tool,
+    CompletionChunk,
+    Completion,
+)
+from .params import Params
+from ._main import (
+    ChatSpecError,
+    logger,
+    # methods
+    is_completion,
+    is_stream,
+    dump_stream_to_message,
     normalize_messages,
-    normalize_system_prompt,
-    has_system_prompt,
-    was_tool_called,
-    run_tool,
-    create_tool_message,
-    passthrough,
+    markdownify,
 )
 
-__all__ = [
-    "State",
-]
+
+# ----------------------------------------------------------------------
+# TypeVars
+# ----------------------------------------------------------------------
 
 
-class IdentificationContext(TypedDict):
+_ContextValueT = TypeVar("_ContextValueT")
+"""
+TypeVar for values with a `State`'s context entries.
+"""
+
+
+# ----------------------------------------------------------------------
+# Context Entry
+# ----------------------------------------------------------------------
+
+
+class _ContextEntry(TypedDict):
     """
-    A dictionary representing the identification context of an agent.
+    A dictionary representing a single entry within
+    a `State`'s context entries.
     """
-    name: Optional[str]
-    role: Optional[str]
-    description: Optional[str]
-    capabilities: Optional[str]
+
+    value: _ContextValueT
+    """
+    The value of the context entry.
+    """
+    markdown: bool
+    """
+    If this context entry is marked as markdown, it will
+    be rendered as markdown in prompts.
+    """
+    code_block: bool
+    """
+    If this context entry is marked as a code block, it will
+    be rendered as a code block in prompts.
+    """
+    shared: bool
+    """
+    If this context entry is automatically shared with other
+    state instances.
+    """
+    identifier: bool
+    """
+    If this context entry is marked as an identifier, it will
+    be automatically added to the system prompt of a `State` 
+    instance as one of the values in this format:
     
+    ```python
+    {
+        "context" : {
+            "name" : {
+                "value" : "steve",
+                "identifier" : True,
+            },
+            "role" : {
+                "value" : "A genius expert.",
+                "identifier" : True,
+            },
+         }
+    }
+    ```
+    
+    ```markdown
+    # Context
+    
+    You are:
+        - Name: steve
+        - Role: A genius expert.
+    ```
+    """
+    metadata: Dict[str, Any]
+    """
+    Optional metadata attached to the context entry.
+    
+    You can use this to store any information you want about the
+    context entry.
+    """
 
-# ------------------------------------------------------------------------------
-# State Class
-# ------------------------------------------------------------------------------
+
+class _Context(TypedDict):
+    """
+    A dictionary representing a collection of context entries.
+    """
+
+    context: Dict[str, _ContextEntry]
+    """
+    A dictionary of context entries.
+    """
+    internal_prompt: Optional[str]
+    """
+    An optional internal prompt for the context entry, this is 
+    used dynamically by a `State` to build its own system prompt.
+    
+    ```python
+    {
+        "context" : {
+            "internal_prompt" : "You are {name}. A {role}.",
+            "name" : {
+                "value" : "steve",
+                },
+            "role" : {
+                "value" : "genius expert.",
+            },
+        }
+    }
+    ```
+    
+    ```markdown
+    # Context
+    
+    You are steve. A genius expert.
+    ```
+    """
+    external_prompt: Optional[str]
+    """
+    An optional external prompt for the context entry, 
+    this is what an outside state object would see, if this
+    instance creates a message for that state object.
+    
+    ```python
+    {
+        "context" : {
+            "external_prompt" : "You have recieved information from {name}, a {role}.",
+            "name" : {
+                "value" : "steve",
+                },
+            "role" : {
+                "value" : "genius expert.",
+            },
+        }
+    }
+    ```
+    
+    ### This would be what another state object would see:
+    
+    ```markdown
+    # Context
+    
+    You have recieved information from steve, a genius expert.
+    ```
+    """
+
+
+# ----------------------------------------------------------------------
+# State
+# ----------------------------------------------------------------------
+
 
 @dataclass
 class State:
     """
-    A manager class for maintaining and augmenting a list of messages.
-    
-    Can be used to manage a chat history, tools, parameters, context, and now
-    identification context for inter-agent communication.
-    
-    Args:
-        messages: A list of messages to initialize the state with.
-        system_prompt: A system prompt to initialize the state with.
-        context: A list of context objects to initialize the state with.
-        params: A dictionary of parameters to initialize the state with.
-        tools: A dictionary of tools to initialize the state with.
-        agent_func: A function to initialize the state with.
-        identification_context: A short string representing the sender's identity.
-            This is used when sending messages between states to scope the context.
+    A manager class for messages, tools and other contextual
+    information used in chat completions in a conversational
+    context.
+    """
+
+    name: str = "Assistant"
+    """
+    The name of the state. This is an important identifier,
+    used directly in the `name` key of a `Message` object, and
+    helps the model understand what is going on, when an 
+    external state object sends it a message.
     """
 
     _messages: List[Message] = field(default_factory=list)
+    """
+    A list of messages to be used in the chat completion.
+    """
     _system_prompt: Optional[str] = None
-    context: List[Dict[str, Any]] = field(default_factory=list)
-
-    # Parameters for LLM
-    params: Params = field(default_factory=lambda: {
-        "model": "gpt-4",
-        "api_key": None,
-        "temperature": 0.7,
-        "top_p": 1.0,
-        "max_completion_tokens": None,
-        "stop": None,
-        "stream": None,
-        "base_url": None,
-        "organization": None,
-    })
-
-    # Tools registry: maps tool names to callables
-    tools: Dict[str, Callable] = field(default_factory=dict)
-
-    # Optional agent function to generate responses (e.g., an API call)
-    agent_func: Optional[Callable] = None
-
-    # New: identification_context used for inter-agent context scoping
-    identification_context: IdentificationContext = field(default_factory=lambda: {
-        "name": None,
-        "role": None,
-        "description": None,
-        "capabilities": None,
-    })
-
-    # Add new field for task completion
-    _task_mode: bool = False
-    _completion_buffer: List[str] = field(default_factory=list)
+    """
+    An optional system prompt for the chat completion.
+    """
+    _context: _Context = field(default_factory=dict)
+    """
+    A dictionary of context entries.
+    """
+    state_id: str = field(default_factory=lambda: str(uuid.uuid4()))
+    """
+    A unique identifier for the state.
+    """
+    params: Params = field(
+        default_factory=lambda: {
+            "model": "gpt-4o-mini",
+        }
+    )
+    """
+    A dictionary of parameters for the chat completion.
+    """
+    tools: Optional[Dict[str, Callable]] = None
+    """
+    A dictionary of tools to be used in the chat completion.
+    """
+    completion_fn: Optional[Callable] = None
+    """
+    A function that can be called to generate a chat completion.
+    The output types must match the OpenAI spec to be valid.
+    """
 
     def __init__(
         self,
+        name: str = "Assistant",
         messages: Optional[List[Message]] = None,
-        _messages: Optional[List[Message]] = None,
         system_prompt: Optional[str] = None,
-        context: Optional[List[Dict[str, Any]]] = None,
+        context: Optional[
+            Union[Dict[str, Any], Dict[str, _ContextEntry]]
+        ] = None,
+        state_id: Optional[str] = None,
         params: Optional[Params] = None,
         tools: Optional[Dict[str, Callable]] = None,
-        agent_func: Optional[Callable] = None,
-        identification_context: Optional[IdentificationContext] = None,
+        completion_fn: Optional[Callable] = None,
     ):
-        # Allow for _messages alias (used internally in subset/temporary thread)
-        if _messages is not None:
-            self._messages = _messages
-        else:
-            self._messages = messages or []
+        self.name = name
+        self._messages = normalize_messages(messages) if messages else []
         self._system_prompt = system_prompt
-        self.context = context or []
-        self.params = params or {}
+        if context:
+            converted: Dict[str, _ContextEntry] = {}
+            for key, val in context.items():
+                if isinstance(val, dict) and "value" in val:
+                    converted[key] = {
+                        "value": val.get("value"),
+                        "shared": bool(val.get("shared", False)),
+                        "identifier": bool(val.get("identifier", False)),
+                        "metadata": dict(val.get("metadata", {})),
+                        "markdown": bool(val.get("markdown", False)),
+                        "code_block": bool(val.get("code_block", False)),
+                    }
+                else:
+                    converted[key] = {
+                        "value": val,
+                        "shared": False,
+                        "identifier": False,
+                        "metadata": {},
+                        "markdown": False,
+                        "code_block": False,
+                    }
+            self._context = {
+                "context": converted,
+                "internal_prompt": None,
+                "external_prompt": None,
+            }
+        else:
+            self._context = {
+                "context": {},
+                "internal_prompt": None,
+                "external_prompt": None,
+            }
+        self.state_id = state_id if state_id else str(uuid.uuid4())
+        self.params = (
+            params if params is not None else {"model": "gpt-4o-mini"}
+        )
         self.tools = tools or {}
-        self.agent_func = agent_func
-        self.identification_context = identification_context or {}
-        self._task_mode = False
-        self._completion_buffer = []
-        self.__post_init__()
-
-    def __post_init__(self):
-        """
-        Normalizes messages upon initialization and extracts the system prompt.
-        Also adds identity to system prompt if available.
-        """
-        if self._messages:
-            self._messages = normalize_messages(self._messages)
-            if has_system_prompt(self._messages):
-                self._messages = normalize_system_prompt(self._messages)
-                self._system_prompt = self._messages[0].get("content")
-                # Remove the system message from internal messages
-                self._messages = self._messages[1:]
-        
-        # Add identity to system prompt if available
-        self._update_system_prompt_with_identity()
+        self.completion_fn = completion_fn
 
     @cached_property
     def system_prompt(self) -> Optional[str]:
         """
-        Combines the stored system prompt with any context.
-        """
-        if self._system_prompt is not None:
-            if not self.context:
-                return self._system_prompt
-            context_str = "\n\n## Context\n" + "\n".join(
-                f"- {k}: {v}" for item in self.context for k, v in item.items()
-            )
-            return f"{self._system_prompt}{context_str}"
-        return None
+        Builds and returns the system prompt.
 
-    def _update_system_prompt_with_identity(self) -> None:
+        If an internal_prompt is defined in the context, it is rendered using this state's
+        shared context; otherwise, the _system_prompt attribute is used.
         """
-        Updates system prompt with identity information if available.
-        Called both during initialization and when identification_context changes.
-        """
-        identity_str = self._format_system_identity()
-        if identity_str:
-            if self._system_prompt:
-                self._system_prompt = f"{identity_str}\n\n{self._system_prompt}"
-            else:
-                self._system_prompt = identity_str
-            # Clear cached system prompt
-            if "system_prompt" in self.__dict__:
-                del self.__dict__["system_prompt"]
+        if self._context.get("internal_prompt"):
+            return self.render_prompt(self._context["internal_prompt"])
+        if self._system_prompt:
+            return self.render_prompt(self._system_prompt)
+        return None
 
     @property
     def messages(self) -> List[Message]:
         """
-        Returns the full message thread, including a dynamic system prompt.
+        Returns the conversation thread with the rendered system prompt (if any) prepended.
+        The system message includes the state's "name" (from context if marked as an identifier)
+        or the state_id.
         """
-        if self.system_prompt is not None:
-            system_msg = {"role": "system", "content": self.system_prompt}
-            return [system_msg] + self._messages
+        if self.system_prompt:
+            sys_msg: Message = {
+                "role": "system",
+                "content": self.system_prompt,
+                "name": self._context["context"]
+                .get("name", {})
+                .get("value", self.state_id),
+            }
+            return [sys_msg] + self._messages
         return self._messages
 
     def add_message(
-        self,
-        message: Union[str, Message],
-        role: Optional[str] = None,
+        self, message: Union[str, Message], role: Optional[str] = None
     ) -> None:
         """
-        Adds a single message to the thread.
+        Adds a message to the conversation. If a string is provided, it is rendered using this state's
+        shared context. If the message does not include a "name", the state's "name" (from context if marked
+        as an identifier) or the state_id is attached.
         """
         if isinstance(message, str):
-            message = {"role": role or "user", "content": message}
-        normalized = normalize_messages([message])
-        self._messages.extend(normalized)
-
-    def add_messages(self, messages: List[Message]) -> None:
-        """
-        Adds multiple messages to the thread.
-        """
-        normalized = normalize_messages(messages)
-        self._messages.extend(normalized)
+            rendered = self.render_prompt(message)
+            msg: Message = {"role": role or "user", "content": rendered}
+        else:
+            msg = message
+            if "content" in msg and isinstance(msg["content"], str):
+                msg["content"] = self.render_prompt(msg["content"])
+        if "name" not in msg:
+            if "name" in self._context["context"] and self._context[
+                "context"
+            ]["name"].get("identifier", False):
+                msg["name"] = self._context["context"]["name"]["value"]
+            else:
+                msg["name"] = self.state_id
+        self._messages.append(msg)
 
     def clear_messages(self, keep_system: bool = True) -> None:
         """
-        Clears all messages. Optionally keeps the system prompt.
+        Clears the conversation history. If keep_system is False, also clears the system prompt.
         """
-        self._messages = []  # Always clear the conversation
+        self._messages = []
         if not keep_system:
             self._system_prompt = None
-            if "system_prompt" in self.__dict__:
-                del self.__dict__["system_prompt"]
+
+    def update_context(
+        self,
+        key: str,
+        value: Any,
+        shared: bool = True,
+        identifier: bool = False,
+        metadata: Optional[Dict[str, Any]] = None,
+        markdown: bool = False,
+        code_block: bool = False,
+    ) -> None:
+        """
+        Updates (or adds) a context entry.
+
+        Args:
+          - key: The context key.
+          - value: The value to set.
+          - shared: If True, this entry is automatically injected into prompts.
+          - identifier: If True, this entry is used as part of agent identification.
+          - metadata: Optional extra metadata.
+          - markdown: If True, the value is passed through markdownify.
+          - code_block: If True and markdown is enabled, renders the value in a code block.
+        """
+        self._context["context"][key] = {
+            "value": value,
+            "shared": shared,
+            "identifier": identifier,
+            "metadata": metadata or {},
+            "markdown": markdown,
+            "code_block": code_block,
+        }
+
+    def remove_context(self, key: str) -> None:
+        """
+        Removes a context entry.
+        """
+        if key in self._context["context"]:
+            del self._context["context"][key]
+
+    def render_prompt(self, prompt: str, *extra: Any) -> str:
+        """
+        Renders a prompt string using this state's shared context.
+
+        For each context entry marked as shared, if its "markdown" flag is True then its value is passed
+        through markdownify (with code_block as specified). Extra context sources (State objects or dicts)
+        can also be provided.
+        """
+        merged: Dict[str, Any] = {}
+        for k, entry in self._context["context"].items():
+            if entry.get("shared", False):
+                val = entry["value"]
+                if entry.get("markdown", False):
+                    val = markdownify(
+                        val, code_block=entry.get("code_block", False)
+                    )
+                merged[k] = val
+        for src in extra:
+            if isinstance(src, State):
+                for k, entry in src._context["context"].items():
+                    if entry.get("shared", False):
+                        val = entry["value"]
+                        if entry.get("markdown", False):
+                            val = markdownify(
+                                val,
+                                code_block=entry.get("code_block", False),
+                            )
+                        merged[k] = val
+            elif isinstance(src, dict):
+                for k, v in src.items():
+                    if isinstance(v, dict) and v.get("shared", False):
+                        val = v["value"]
+                        if v.get("markdown", False):
+                            val = markdownify(
+                                val, code_block=v.get("code_block", False)
+                            )
+                        merged[k] = val
+        try:
+            return prompt.format(**merged)
+        except Exception as e:
+            logger.warning(
+                f"Error rendering prompt '{prompt}' with context {merged}: {e}"
+            )
+            return prompt
 
     @contextmanager
     def temporary_thread(
         self, inherit: bool = True
     ) -> Generator["State", None, None]:
         """
-        Creates a temporary message thread (scratchpad) that can be used without
-        affecting the main thread.
+        Creates a temporary conversation thread (scratchpad) that does not affect the main conversation.
         """
-        # Store original messages
-        original_messages = deepcopy(self._messages)
-        
-        temp_state = State(
-            _messages=deepcopy(self._messages) if inherit else [],
-            system_prompt=deepcopy(self._system_prompt),
-            context=deepcopy(self.context),
+        original = deepcopy(self._messages)
+        temp = State(
+            name=self.name,
+            messages=deepcopy(self._messages) if inherit else [],
+            system_prompt=self._system_prompt,
+            context=deepcopy(self._context["context"]),
+            state_id=self.state_id,
             params=deepcopy(self.params),
             tools=deepcopy(self.tools),
-            agent_func=self.agent_func,
-            identification_context=deepcopy(self.identification_context),
+            completion_fn=self.completion_fn,
+        )
+        temp._context["internal_prompt"] = self._context.get(
+            "internal_prompt"
+        )
+        temp._context["external_prompt"] = self._context.get(
+            "external_prompt"
         )
         try:
-            yield temp_state
+            yield temp
         finally:
-            # Restore original messages
-            self._messages = original_messages
+            self._messages = original
 
     def merge_from(
         self,
@@ -239,31 +480,29 @@ class State:
         selector: Optional[Callable[[Message], bool]] = None,
     ) -> None:
         """
-        Merges messages from another State instance. An optional selector function
-        can filter which messages are merged.
+        Merges messages from another State into this one.
+        An optional selector can filter which messages to merge.
         """
-        messages_to_merge = other._messages
+        msgs = other._messages
         if selector:
-            messages_to_merge = [
-                msg for msg in messages_to_merge if selector(msg)
-            ]
-        self._messages.extend(deepcopy(messages_to_merge))
+            msgs = [m for m in msgs if selector(m)]
+        self._messages.extend(deepcopy(msgs))
 
     def subset(
         self, start: Optional[int] = None, end: Optional[int] = None
     ) -> "State":
         """
-        Returns a new State with a subset of the current messages.
+        Returns a new State containing a subset of the conversation messages.
         """
-        messages = self._messages[start:end]
         return State(
-            _messages=deepcopy(messages),
+            name=self.name,
+            messages=deepcopy(self._messages[start:end]),
             system_prompt=self._system_prompt,
-            context=deepcopy(self.context),
+            context=deepcopy(self._context["context"]),
+            state_id=self.state_id,
             params=deepcopy(self.params),
             tools=deepcopy(self.tools),
-            agent_func=self.agent_func,
-            identification_context=deepcopy(self.identification_context),
+            completion_fn=self.completion_fn,
         )
 
     def last_n(self, n: int) -> "State":
@@ -276,400 +515,143 @@ class State:
         """
         Returns a new State containing only messages that satisfy the predicate.
         """
+        filtered = [m for m in self._messages if predicate(m)]
         return State(
-            _messages=[m for m in self._messages if predicate(m)],
+            name=self.name,
+            messages=filtered,
             system_prompt=self._system_prompt,
-            context=deepcopy(self.context),
+            context=self._context["context"],
+            state_id=self.state_id,
             params=deepcopy(self.params),
             tools=deepcopy(self.tools),
-            agent_func=self.agent_func,
-            identification_context=deepcopy(self.identification_context),
+            completion_fn=self.completion_fn,
         )
-
-    def add_context(self, context: Dict[str, Any]) -> None:
-        """
-        Adds a context object and clears the cached system prompt.
-        """
-        self.context.append(context)
-        if "system_prompt" in self.__dict__:
-            del self.__dict__["system_prompt"]
-
-    def remove_context(
-        self, predicate: Callable[[Dict[str, Any]], bool]
-    ) -> None:
-        """
-        Removes context objects that match the predicate.
-        """
-        self.context = [c for c in self.context if not predicate(c)]
-        if "system_prompt" in self.__dict__:
-            del self.__dict__["system_prompt"]
-
-    @property
-    def last_message(self) -> Optional[Message]:
-        """Returns the last message in the thread."""
-        return self._messages[-1] if self._messages else None
-
-    @property
-    def last_user_message(self) -> Optional[Message]:
-        """Returns the last user message in the thread."""
-        for msg in reversed(self._messages):
-            if msg.get("role") == "user":
-                return msg
-        return None
-
-    @property
-    def last_assistant_message(self) -> Optional[Message]:
-        """Returns the last assistant message in the thread."""
-        for msg in reversed(self._messages):
-            if msg.get("role") == "assistant":
-                return msg
-        return None
-
-    # --- Extended Functionality for Agents, Tools, and Inter-State Communication ---
 
     def register_tool(self, name: str, tool: Callable) -> None:
         """
-        Registers a tool under a given name.
-
-        Args:
-            name: The unique name for the tool.
-            tool: The callable that implements the tool.
+        Registers a tool (callable) under the given name.
         """
         self.tools[name] = tool
 
     def get_tool(self, name: str) -> Optional[Callable]:
         """
         Retrieves a registered tool by name.
-
-        Args:
-            name: The name of the tool.
-
-        Returns:
-            The tool callable if found, otherwise None.
         """
         return self.tools.get(name)
 
-    def execute_tool_calls(self, completion: Any) -> None:
+    def execute_tool_calls(self, completion: Dict[str, Any]) -> None:
         """
-        Inspects the given completion for any tool calls and executes the
-        registered tools accordingly. The output of each tool is added to the
-        conversation as a tool message.
-
-        Args:
-            completion: A chat completion object (streaming or non-streaming).
+        Executes any tool calls contained in a completion object.
+        Uses msgspec for JSON decoding.
         """
-        for tool_name, tool_func in self.tools.items():
-            tool_calls = completion.get("tool_calls", [])
-            for call in tool_calls:
-                if (call.get("type") == "function" and 
-                    call.get("function", {}).get("name") == tool_name):
-                    try:
-                        import json
-                        args = json.loads(call["function"]["arguments"])
-                        output = tool_func(**args)
-                        tool_msg = {
+        tool_calls = completion.get("tool_calls", [])
+        for call in tool_calls:
+            tool_name = call.get("function", {}).get("name")
+            if tool_name in self.tools:
+                try:
+                    args_str = call["function"]["arguments"]
+                    args = msgspec.json.decode(args_str)
+                    output = self.tools[tool_name](**args)
+                    self.add_message(
+                        {
                             "role": "tool",
                             "tool_call_id": call.get("id", "unknown"),
-                            "content": str(output)
+                            "content": str(output),
                         }
-                        self.add_message(tool_msg)
-                    except Exception as e:
-                        error_msg = {
+                    )
+                except Exception as e:
+                    self.add_message(
+                        {
                             "role": "tool",
                             "tool_call_id": "error",
                             "content": f"Error executing tool '{tool_name}': {e}",
                         }
-                        self.add_message(error_msg)
+                    )
 
-    def process_response(self, response: Any) -> None:
+    def process_response(self, response: Dict[str, Any]) -> None:
         """
-        Processes a response from the agent. This method checks for any tool
-        calls within the response and executes them.
-
-        Args:
-            response: The response object from the agent.
+        Processes an agent response by executing any contained tool calls.
         """
         self.execute_tool_calls(response)
 
     def prompt(self, user_input: str) -> Any:
         """
-        Enhanced prompt method that enforces task completion in task mode.
+        Renders the user input (injecting this state's shared context), adds it as a message,
+        and passes the full conversation to the completion function.
+        The output of the completion function is automatically handled (e.g. via dump_stream_to_message).
         """
-        response = super().prompt(user_input)
-        
-        # In task mode, verify that complete() was called
-        if self._task_mode and not self._completion_buffer:
-            # If no completion was provided, prompt again for explicit completion
-            completion_prompt = {
-                "role": "user",
-                "content": "Please provide your final answer using the complete() tool."
-            }
-            self.add_message(completion_prompt)
-            response = self.agent_func(
-                messages=self.messages,
-                **self.params
-            )
-            self.add_message(response)
-            self.process_response(response)
-            
+        rendered = self.render_prompt(user_input)
+        self.add_message({"role": "user", "content": rendered})
+        if not self.completion_fn:
+            raise ChatSpecError("No completion function defined.")
+        response = self.completion_fn(
+            messages=self.messages, **self.params
+        )
+        # If the completion function returns a stream, we convert it to a Message.
+        if is_completion(response) or is_stream(response):
+            try:
+                response = dump_stream_to_message(response)
+            except Exception:
+                pass
+        self.add_message(response)
+        self.process_response(response)
         return response
 
-    def update_params(self, **kwargs) -> None:
-        """
-        Updates agent parameters stored in the params dictionary.
-
-        Args:
-            **kwargs: Parameter names and their new values.
-
-        Raises:
-            ValueError: If an unsupported parameter is provided.
-        """
-        allowed_params = set(self.params.keys())
-        for key, value in kwargs.items():
-            if key in allowed_params:
-                self.params[key] = value
-            else:
-                raise ValueError(f"Unsupported parameter: {key}")
-
-    # --- New Inter-State Communication Methods ---
-
     def send_message_to(
-        self, target_state: "State", message: Union[str, Message]
+        self, target: "State", message: Union[str, Message]
     ) -> None:
         """
-        Sends a message from this state to another state (agent), automatically managing
-        context and communication protocols between agents.
-
-        The method:
-        1. Adds context about the sender's identity and role
-        2. Includes any relevant conversation history
-        3. Formats the message appropriately for inter-agent communication
-
-        Args:
-            target_state: The receiving State instance.
-            message: The message content (either as a string or a Message dict).
+        Sends a message to another State.
+        The sender's external prompt (if defined) is used for rendering,
+        and if the message lacks a "name", the sender's identifier is attached.
         """
         if isinstance(message, str):
-            message = {"role": "user", "content": message}
-
-        # Add sender context
-        context_prompt = []
-        if self.identification_context.get("name"):
-            context_prompt.append(
-                f"You are communicating as {self.identification_context['name']}, a {self.identification_context['role']}. {self.identification_context['description']}. Your capabilities include: {self.identification_context['capabilities']}"
-            )
-        if hasattr(self, "capabilities"):
-            context_prompt.append(
-                f"Your capabilities include: {', '.join(self.capabilities)}"
-            )
-        if context_prompt:
-            self.add_message({
-                "role": "system",
-                "content": " ".join(context_prompt)
-            })
-
-        # Add communication protocol prompt
-        protocol_prompt = {
-            "role": "system",
-            "content": (
-                "This is an inter-agent communication. Please:\n"
-                "1. Maintain context awareness of your role and the conversation\n"
-                "2. Be explicit about any assumptions or requirements\n"
-                "3. Format responses in a way that's clear for other agents to process"
-            )
-        }
-        self.add_message(protocol_prompt)
-        
-        target_state.receive_message_from(self, message)
+            rendered = self.render_prompt(message)
+            msg: Message = {
+                "role": "user",
+                "content": rendered,
+                "name": self._context["context"]
+                .get("name", {})
+                .get("value", self.state_id),
+            }
+        else:
+            msg = message
+            if "content" in msg and isinstance(msg["content"], str):
+                msg["content"] = self.render_prompt(msg["content"])
+            if "name" not in msg:
+                msg["name"] = (
+                    self._context["context"]
+                    .get("name", {})
+                    .get("value", self.state_id)
+                )
+        target.receive_message_from(self, msg)
 
     def receive_message_from(
         self, sender: "State", message: Union[str, Message]
     ) -> None:
         """
-        Receives a message from another state (agent), handling context management
-        and communication protocols.
-
-        The method:
-        1. Establishes sender context and identity
-        2. Sets up appropriate response protocols
-        3. Maintains conversation coherence between agents
-
-        Args:
-            sender: The sending State instance.
-            message: The message content (either as a string or a Message dict).
+        Receives a message from another State.
+        The sender's external prompt is used to render the message,
+        and the sender's identifier is attached if missing.
         """
-        # Add the external message note to system prompt if not already present
-        external_note = "NOTE: any blocks wrapped in [EXTERNAL] were sent by a source other than the user"
-        if self._system_prompt:
-            if external_note not in self._system_prompt:
-                self._system_prompt = f"{self._system_prompt}\n\n{external_note}"
-        else:
-            self._system_prompt = external_note
-        
-        # Clear cached system prompt to ensure it's regenerated
-        if "system_prompt" in self.__dict__:
-            del self.__dict__["system_prompt"]
-
-        # Add sender context only if identification information exists
-        context_prompts = []
-        if any(sender.identification_context.values()):
-            # Build context string only with available information
-            sender_info = []
-            if sender.identification_context.get("name"):
-                sender_info.append(f"{sender.identification_context['name']}")
-            if sender.identification_context.get("role"):
-                sender_info.append(f"a {sender.identification_context['role']}")
-            if sender.identification_context.get("description"):
-                sender_info.append(f"{sender.identification_context['description']}")
-            if sender.identification_context.get("capabilities"):
-                sender_info.append(f"with capabilities: {sender.identification_context['capabilities']}")
-            
-            if sender_info:
-                context_prompts.append(f"You are receiving a message from: {', '.join(sender_info)}")
-        
-        # Add communication context if we have any context prompts
-        if context_prompts:
-            self.add_message({
-                "role": "system",
-                "content": " ".join(context_prompts)
-            })
-
-        # Format the message to include sender's identification context
+        sender_name = (
+            sender._context["context"]
+            .get("name", {})
+            .get("value", sender.state_id or "unknown")
+        )
         if isinstance(message, str):
-            message = {"role": "user", "content": message}
-        
-        # Use the formatted identification for the sender
-        sender_id = sender._format_identification()
-        original_content = message["content"]
-        message["content"] = f"[EXTERNAL from {sender_id}]: {original_content}"
-
-        self.add_message(message)
-
-    @staticmethod
-    def test_temporary_thread():
-        """Test temporary thread creation and isolation."""
-        initial_messages = [
-            {"role": "user", "content": "Original message"}
-        ]
-        state = State(_messages=initial_messages.copy())
-        
-        with state.temporary_thread(inherit=False) as temp:  # Set inherit=False
-            temp.add_message("This is temporary")
-            # Verify temp thread has the temporary message
-            assert "This is temporary" in temp._messages[-1]["content"]
-            # Verify original state doesn't have the temporary message
-            assert "This is temporary" not in str(state._messages)
-        
-        # Verify the temporary message doesn't persist after the context
-        assert len(state._messages) == 1
-        assert "This is temporary" not in str(state._messages)
-
-    @contextmanager
-    def task(self, task_prompt: str) -> Generator["State", None, None]:
-        """
-        Creates a task-oriented context where the LLM uses chain-of-thought reasoning
-        to solve a problem and must provide a final answer using the complete() tool.
-
-        Args:
-            task_prompt: The task description or question to be solved
-        """
-        # Store original state
-        original_tools = deepcopy(self.tools)
-        original_system = deepcopy(self._system_prompt)
-        original_task_mode = self._task_mode
-        
-        try:
-            # Enable task mode
-            self._task_mode = True
-            self._completion_buffer = []
-            
-            # Add the complete tool
-            def complete(value: Any) -> str:
-                """Tool to submit the final answer for the task."""
-                self._completion_buffer.append(str(value))
-                return "Task completed successfully."
-            
-            self.register_tool("complete", complete)
-            
-            # Enhance system prompt with task-specific instructions
-            task_system_prompt = """You are a problem-solving assistant that uses chain-of-thought reasoning.
-            
-1. Break down the problem into steps
-2. Think through each step carefully
-3. Show your work and reasoning
-4. When you reach the final answer, use the complete() tool to submit it
-5. You MUST use the complete() tool to provide your final answer
-
-Example thought process:
-1. First, I'll...
-2. Then, I'll...
-3. Finally, I can conclude...
-complete(final_answer)"""
-
-            if self._system_prompt:
-                self._system_prompt = f"{self._system_prompt}\n\n{task_system_prompt}"
-            else:
-                self._system_prompt = task_system_prompt
-
-            # Add the task prompt
-            self.add_message({
+            message = {
                 "role": "user",
-                "content": f"Task: {task_prompt}\n\nPlease solve this step by step and provide your final answer using the complete() tool."
-            })
-            
-            yield self
-
-        finally:
-            # Restore original state
-            self.tools = original_tools
-            self._system_prompt = original_system
-            self._task_mode = original_task_mode
-
-    def get_task_result(self) -> Optional[str]:
-        """
-        Returns the final result submitted through the complete() tool.
-        """
-        return self._completion_buffer[-1] if self._completion_buffer else None
-
-    def _format_identification(self) -> str:
-        """
-        Formats the identification context into a human-readable string.
-        Only includes fields that are set (not None).
-        """
-        parts = []
-        if self.identification_context.get("name"):
-            parts.append(f"{self.identification_context['name']}")
-        if self.identification_context.get("role"):
-            parts.append(f"a {self.identification_context['role']}")
-        if self.identification_context.get("description"):
-            parts.append(f"({self.identification_context['description']})")
-        
-        return " ".join(parts) if parts else "unknown agent"
-
-    def _format_system_identity(self) -> str:
-        """
-        Formats the identification context for system prompts.
-        """
-        parts = []
-        if self.identification_context.get("name"):
-            parts.append(f"You are {self.identification_context['name']}")
-        if self.identification_context.get("role"):
-            if not parts:
-                parts.append(f"You are a {self.identification_context['role']}")
-            else:
-                parts[-1] += f", a {self.identification_context['role']}"
-        if self.identification_context.get("description"):
-            parts.append(self.identification_context["description"])
-        if self.identification_context.get("capabilities"):
-            parts.append(f"Your capabilities include: {self.identification_context['capabilities']}")
-        
-        return ". ".join(parts) if parts else ""
-
-    @property
-    def identification_context(self) -> Dict[str, str]:
-        return self._identification_context
-
-    @identification_context.setter
-    def identification_context(self, value: Dict[str, str]) -> None:
-        self._identification_context = value
-        self._update_system_prompt_with_identity()
+                "content": message,
+                "name": sender_name,
+            }
+        else:
+            if "content" in message and isinstance(
+                message["content"], str
+            ):
+                message["content"] = sender.render_prompt(
+                    message["content"]
+                )
+            if "name" not in message:
+                message["name"] = sender_name
+        self.add_message(message)
