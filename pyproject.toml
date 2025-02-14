@@ -19,6 +19,7 @@ license = { file = "LICENSE" }
 requires-python = ">=3.10"
 
 dependencies = [
+    "pydantic-core>=2.29.0",
 ]
 
 # ------------------------------------------------------------------------
