@@ -6,4 +6,5 @@ the chat completions API specification.
 """
 
 from .utils import *
+from .state import State
 from . import types
