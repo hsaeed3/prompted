@@ -233,7 +233,6 @@ dependencies = [
     { name = "cachetools" },
     { name = "docstring-parser" },
     { name = "pydantic" },
-    { name = "rich" },
 ]
 
 [package.dev-dependencies]
@@ -252,7 +251,6 @@ requires-dist = [
     { name = "cachetools", specifier = ">=5.5.1" },
     { name = "docstring-parser", specifier = ">=0.16" },
     { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "rich", specifier = ">=13.9.4" },
 ]
 
 [package.metadata.requires-dev]
