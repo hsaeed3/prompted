@@ -7,3 +7,4 @@ the chat completions API specification.
 
 from ._main import *
 from . import params, types
+from .state import State
