@@ -6,6 +6,7 @@ Contains all utility functions within the chatspec package.
 
 import logging
 import hashlib
+import docstring_parser
 from cachetools import cached, TTLCache
 from dataclasses import is_dataclass
 from inspect import signature
@@ -285,14 +286,14 @@ def is_message(message: Any) -> bool:
     """
     Checks if the given object is a valid chat message.
 
-    A valid message is a dict with a 'role' in {'assistant', 'user', 'system', 'tool'}.
+    A valid message is a dict with a 'role' in {'assistant', 'user', 'system', 'tool', 'developer'}.
     For non-assistant messages (or if tool_calls are absent), a 'content' field is required.
     Additionally, tool messages must have a 'tool_call_id'.
     """
     try:
         if not isinstance(message, dict):
             return False
-        allowed_roles = {"assistant", "user", "system", "tool"}
+        allowed_roles = {"assistant", "user", "system", "tool", "developer"}
         role = message.get("role")
         if role not in allowed_roles:
             return False
@@ -559,19 +560,13 @@ def print_stream(stream: Any) -> None:
     Shows both content and tool calls if present.
     """
     try:
-        from rich.console import Console
-        from rich.panel import Panel
-        from rich.text import Text
-
-        console = Console()
-
         if is_stream(stream):
             for chunk in stream:
                 delta = chunk.choices[0].delta
 
                 # Handle content
                 if hasattr(delta, "content") and delta.content:
-                    console.print(delta.content, end="")
+                    print(delta.content, end="", flush=True)
 
                 # Handle tool calls
                 if hasattr(delta, "tool_calls"):
@@ -580,16 +575,10 @@ def print_stream(stream: Any) -> None:
                         for tool_call in tool_calls:
                             if hasattr(tool_call, "function"):
                                 func = tool_call.function
-                                panel = Panel(
-                                    Text.assemble(
-                                        ("Tool Call: ", "bold magenta"),
-                                        (f"{func.name}\n", "cyan"),
-                                        ("Arguments: ", "bold yellow"),
-                                        (f"{func.arguments}", "yellow"),
-                                    ),
-                                    border_style="bright_blue",
-                                )
-                                console.print(panel)
+                                print("\n=== Tool Call ===")
+                                print(f"Name: {func.name}")
+                                print(f"Arguments: {func.arguments}")
+                                print("================\n")
     except Exception as e:
         logger.debug(f"Error printing stream: {e}")
 
@@ -786,7 +775,8 @@ def convert_to_tool(
                 schema["additionalProperties"] = False
             function_def = {"name": tool.__name__, "parameters": schema}
             if tool.__doc__:
-                function_def["description"] = tool.__doc__.strip()
+                docstring = docstring_parser.parse(tool.__doc__)
+                function_def["description"] = docstring.description
             return {"type": "function", "function": function_def}
 
         if callable(tool):
@@ -795,10 +785,23 @@ def convert_to_tool(
             sig = inspect.signature(tool)
             properties = {}
             required = []
+
+            # Parse docstring if available
+            param_descriptions = {}
+            if tool.__doc__:
+                docstring = docstring_parser.parse(tool.__doc__)
+                description = docstring.description
+                for param in docstring.params:
+                    param_descriptions[param.arg_name] = param.description
+
             for name, param in sig.parameters.items():
                 if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                     continue
+
                 param_schema = {"type": "string"}
+                if name in param_descriptions:
+                    param_schema["description"] = param_descriptions[name]
+
                 if param.annotation != inspect.Parameter.empty:
                     if param.annotation == str:
                         param_schema["type"] = "string"
@@ -812,21 +815,29 @@ def convert_to_tool(
                         param_schema["type"] = "array"
                     elif param.annotation == dict:
                         param_schema["type"] = "object"
+
                 properties[name] = param_schema
                 if param.default == inspect.Parameter.empty:
                     required.append(name)
+
             parameters_schema = {
                 "type": "object",
                 "properties": properties,
                 "required": required,
                 "additionalProperties": False,
             }
+
             function_def = {
                 "name": tool.__name__,
                 "parameters": parameters_schema,
             }
+
             if tool.__doc__:
-                function_def["description"] = tool.__doc__.strip()
+                docstring = docstring_parser.parse(tool.__doc__)
+                function_def["description"] = docstring.description
+                if docstring.returns:
+                    function_def["returns"] = docstring.returns.description
+
             return {"type": "function", "function": function_def}
 
         raise TypeError(f"Cannot convert {type(tool)} to tool")

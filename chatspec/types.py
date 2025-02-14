@@ -4,7 +4,16 @@
 Core type definitions for chat completions.
 """
 
-from typing import Dict, List, Optional, Union, Literal, TypeAlias, Any
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Union,
+    Literal,
+    TypeAlias,
+    Any,
+    Iterable,
+)
 from typing_extensions import TypedDict, NotRequired
 from pydantic import BaseModel
 
@@ -13,11 +22,57 @@ from pydantic import BaseModel
 # ----------------------------------------------------------------------------
 
 
+class MessageContentImage(TypedDict):
+    """
+    A dictionary representing parameters or data referring to an image for
+    multi-modal completions.
+    """
+
+    class ImageURL(TypedDict):
+        url: str
+        detail: Literal["auto", "low", "high"]
+
+    image_url: ImageURL
+    type: Literal["image_url"]
+
+
+class MessageContentText(TypedDict):
+    """
+    A dictionary representing a text message.
+    """
+
+    text: str
+    type: Literal["text"]
+
+
+class MessageContentAudio(TypedDict):
+    """
+    A dictionary representing parameters or data referring to an audio file
+    for multi-modal completions.
+    """
+
+    class InputAudio(TypedDict):
+        data: str
+        format: Literal["wav", "mp3"]
+
+    input_audio: InputAudio
+    type: Literal["input_audio"]
+    
+    
+
+MessageContent = Union[MessageContentImage, MessageContentText, MessageContentAudio]
+
+
+# developer is openai specific and
+# only supported by their reasoning models
+MessageRole = Literal["assistant", "user", "system", "tool", "developer"]
+
+
 class Message(TypedDict):
     """Core message type for chat completions."""
 
-    role: Literal["assistant", "user", "system", "tool"]
-    content: Optional[str]
+    role: MessageRole
+    content: Optional[Union[Iterable[MessageContent], str]]
     name: NotRequired[str]
     tool_calls: NotRequired[List[Dict[str, Any]]]
     tool_call_id: NotRequired[str]
@@ -125,10 +180,37 @@ class ChatCompletionChunk(BaseModel):
     choices: List[ChunkChoice]
 
 
+# ----------------------------------------------------------------------------
+# Params
+# ----------------------------------------------------------------------------
+
+
+class Params(TypedDict):
+    """
+    Common parameter types for chat completions.
+    """
+
+    model: str
+    messages: Messages
+    api_key: Optional[str]
+    base_url: Optional[str]
+    organization: Optional[str]
+    temperature: Optional[float]
+    top_p: Optional[float]
+    max_completion_tokens: Optional[int]
+    stop: Optional[Stop]
+    stream: Optional[bool]
+
+
 __all__ = [
     # Core Types
     "Message",
     "Messages",
+    "MessageContentImage",
+    "MessageContentText",
+    "MessageContentAudio",
+    "MessageContent",
+    "MessageRole",
     "Tool",
     "FunctionDefinition",
     # Parameters
@@ -148,4 +230,6 @@ __all__ = [
     "ChatCompletion",
     "ChatCompletionChunk",
     "ChunkChoice",
+    # Params
+    "Params",
 ]
