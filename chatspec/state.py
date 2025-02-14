@@ -129,6 +129,9 @@ class State:
         Creates a temporary message thread (scratchpad) that can be used without
         affecting the main thread.
         """
+        # Store original messages
+        original_messages = deepcopy(self._messages)
+        
         temp_state = State(
             _messages=deepcopy(self._messages) if inherit else [],
             _system_prompt=deepcopy(self._system_prompt),
@@ -141,7 +144,11 @@ class State:
             tools=deepcopy(self.tools),
             agent_func=self.agent_func,
         )
-        yield temp_state
+        try:
+            yield temp_state
+        finally:
+            # Restore original messages
+            self._messages = original_messages
 
     def merge_from(
         self,
@@ -379,3 +386,21 @@ class State:
                 setattr(self, key, value)
             else:
                 raise ValueError(f"Unsupported parameter: {key}")
+
+    def test_temporary_thread():
+        """Test temporary thread creation and isolation."""
+        initial_messages = [
+            {"role": "user", "content": "Original message"}
+        ]
+        state = State(_messages=initial_messages.copy())
+        
+        with state.temporary_thread(inherit=False) as temp:  # Set inherit=False
+            temp.add_message("This is temporary")
+            # Verify temp thread has the temporary message
+            assert "This is temporary" in temp._messages[-1]["content"]
+            # Verify original state doesn't have the temporary message
+            assert "This is temporary" not in str(state._messages)
+        
+        # Verify the temporary message doesn't persist after the context
+        assert len(state._messages) == 1
+        assert "This is temporary" not in str(state._messages)
