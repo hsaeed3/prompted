@@ -40,7 +40,9 @@ dev = [
     # tests
     "pytest",
     "pytest-asyncio",
-
+    # jupyter,
+    "ipykernel",
+    "ipython",
     # openai is used for testing
     "openai>=1.52.0,<2.0.0",
     "litellm"
