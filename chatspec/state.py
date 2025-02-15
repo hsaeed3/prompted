@@ -31,6 +31,9 @@ from .types import (
     Tool,
     CompletionChunk,
     Completion,
+    CompletionMessage,
+    CompletionToolCall,
+    CompletionFunction,
 )
 from .params import Params
 from .utils import (
@@ -539,23 +542,40 @@ class State:
         """
         return self.tools.get(name)
 
-    def execute_tool_calls(self, completion: Dict[str, Any]) -> None:
+    def execute_tool_calls(self, completion: Union[Dict[str, Any], CompletionMessage]) -> None:
         """
         Executes any tool calls contained in a completion object.
-        Uses msgspec for JSON decoding.
+        Uses msgspec for JSON decoding and ensures proper typing with CompletionToolCall.
         """
-        tool_calls = completion.get("tool_calls", [])
+        # Extract tool_calls, handling both dict and CompletionMessage cases
+        tool_calls = []
+        if isinstance(completion, dict):
+            tool_calls = completion.get("tool_calls", [])
+        else:
+            tool_calls = completion.tool_calls or []
+
         for call in tool_calls:
-            tool_name = call.get("function", {}).get("name")
-            if tool_name in self.tools:
+            # Convert dict to CompletionToolCall if needed
+            tool_call = (
+                call if isinstance(call, CompletionToolCall)
+                else CompletionToolCall(
+                    id=call.get("id", str(uuid.uuid4())),
+                    type="function",
+                    function=CompletionFunction(
+                        name=call.get("function", {}).get("name", ""),
+                        arguments=call.get("function", {}).get("arguments", "{}")
+                    )
+                )
+            )
+            
+            if tool_call.function.name in self.tools:
                 try:
-                    args_str = call["function"]["arguments"]
-                    args = msgspec.json.decode(args_str)
-                    output = self.tools[tool_name](**args)
+                    args = msgspec.json.decode(tool_call.function.arguments)
+                    output = self.tools[tool_call.function.name](**args)
                     self.add_message(
                         {
                             "role": "tool",
-                            "tool_call_id": call.get("id", "unknown"),
+                            "tool_call_id": tool_call.id,
                             "content": str(output),
                         }
                     )
@@ -564,46 +584,65 @@ class State:
                         {
                             "role": "tool",
                             "tool_call_id": "error",
-                            "content": f"Error executing tool '{tool_name}': {e}",
+                            "content": f"Error executing tool '{tool_call.function.name}': {e}",
                         }
                     )
 
-    def process_response(self, response: Dict[str, Any]) -> None:
+    def process_response(self, response: Union[Dict[str, Any], CompletionMessage, Message]) -> None:
         """
         Processes an agent response by executing any contained tool calls.
+        Now handles both raw dictionaries and proper CompletionMessage objects.
         """
-        self.execute_tool_calls(response)
+        if isinstance(response, (dict, CompletionMessage)):
+            self.execute_tool_calls(response)
 
-    def prompt(self, user_input: str) -> Any:
+    def prompt(self, user_input: str) -> Union[Message, CompletionMessage]:
         """
         Renders the user input (injecting this state's shared context), adds it as a message,
         and passes the full conversation to the completion function.
-        The output of the completion function is automatically handled (e.g. via dump_stream_to_message).
+        
+        Returns:
+            Either a Message or CompletionMessage object, depending on the completion function's output.
         """
         rendered = self.render_prompt(user_input)
         self.add_message({"role": "user", "content": rendered})
+        
         if not self.completion_fn:
             raise ChatSpecError("No completion function defined.")
-        response = self.completion_fn(
-            messages=self.messages, **self.params
-        )
-        # If the completion function returns a stream, we convert it to a Message.
-        if is_completion(response) or is_stream(response):
-            try:
-                response = dump_stream_to_message(response)
-            except Exception:
-                pass
-        self.add_message(response)
-        self.process_response(response)
-        return response
+            
+        response = self.completion_fn(messages=self.messages, **self.params)
+        
+        # Handle different response types
+        if is_completion(response):
+            # Extract the CompletionMessage from the Completion
+            if isinstance(response, Completion) and response.choices:
+                message = response.choices[0].message
+                self.add_message(message)
+                self.process_response(message)
+                return message
+                
+        elif is_stream(response):
+            # Convert stream to a proper Message
+            message = dump_stream_to_message(response)
+            if isinstance(message, (dict, CompletionMessage)):
+                self.add_message(message)
+                self.process_response(message)
+                return message
+                
+        # Fallback for other response types
+        if isinstance(response, (dict, CompletionMessage)):
+            self.add_message(response)
+            self.process_response(response)
+            return response
+            
+        raise ChatSpecError(f"Unexpected response type: {type(response)}")
 
     def send_message_to(
-        self, target: "State", message: Union[str, Message]
+        self, target: "State", message: Union[str, Message, CompletionMessage]
     ) -> None:
         """
         Sends a message to another State.
-        The sender's external prompt (if defined) is used for rendering,
-        and if the message lacks a "name", the sender's identifier is attached.
+        Now handles CompletionMessage objects as well.
         """
         if isinstance(message, str):
             rendered = self.render_prompt(message)
@@ -613,6 +652,13 @@ class State:
                 "name": self._context["context"]
                 .get("name", {})
                 .get("value", self.state_id),
+            }
+        elif isinstance(message, CompletionMessage):
+            # Convert CompletionMessage to Message
+            msg = {
+                "role": message.role,
+                "content": self.render_prompt(message.content) if isinstance(message.content, str) else message.content,
+                "name": message.name or self._context["context"].get("name", {}).get("value", self.state_id),
             }
         else:
             msg = message
@@ -627,31 +673,35 @@ class State:
         target.receive_message_from(self, msg)
 
     def receive_message_from(
-        self, sender: "State", message: Union[str, Message]
+        self, sender: "State", message: Union[str, Message, CompletionMessage]
     ) -> None:
         """
         Receives a message from another State.
-        The sender's external prompt is used to render the message,
-        and the sender's identifier is attached if missing.
+        Now handles CompletionMessage objects properly.
         """
         sender_name = (
             sender._context["context"]
             .get("name", {})
             .get("value", sender.state_id or "unknown")
         )
+        
         if isinstance(message, str):
             message = {
                 "role": "user",
                 "content": message,
                 "name": sender_name,
             }
+        elif isinstance(message, CompletionMessage):
+            # Convert CompletionMessage to Message
+            message = {
+                "role": message.role,
+                "content": sender.render_prompt(message.content) if isinstance(message.content, str) else message.content,
+                "name": message.name or sender_name,
+            }
         else:
-            if "content" in message and isinstance(
-                message["content"], str
-            ):
-                message["content"] = sender.render_prompt(
-                    message["content"]
-                )
+            if "content" in message and isinstance(message["content"], str):
+                message["content"] = sender.render_prompt(message["content"])
             if "name" not in message:
                 message["name"] = sender_name
+                
         self.add_message(message)
