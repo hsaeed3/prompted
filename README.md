@@ -14,6 +14,40 @@ pip install chatspec
 
 `promptspec` provides a 'prethora' (as many as would actually be useful) of types, models & methods for validating, converting and augmenting objects used in the OpenAI chat completions API specification, a `State` class for managing messages threads for agentic application, as well as a `MockAI` client & `mock_completion()` method for creating mock llm responses quickly. I use [Instructor](https://github.com/instructor-ai/instructor) for all of my structured outputs, so `Pydantic` is a core part of this library. The point of this library is to provide a common interface for methods that I have found myself needing to replicate across multiple projects.
 
+## ✨ Quickstart
+
+```python
+# just import the package
+import chatspec
+
+# create some tool for the llm to call
+def get_capital(city : str) -> str:
+    return "Paris"
+
+# create a mock completion with a simulated tool call & stream it!
+stream = chatspec.mock_completion(
+    # format threads easily
+    # this creates a proper list of messages from a:
+    # - string
+    # - list of messages
+    # - single message (pydantic or dict)
+    messages = chatspec.normalize_messages("What is the capital of France?"),
+    # convert tools pydantic functions / pydantic models / and more to tools easily
+    tools = [chatspec.convert_to_tool(get_capital)],
+    # streaming is supported & properly typed / handled
+    stream = True
+)
+
+# chatspec provides a plethora of 'ease of use' methods
+chatspec.print_stream(stream)
+# >>> Mock response to: What is the capital of France?
+# >>> Tool Call:
+# >>>   ID: 79d46439-3df2-49de-b978-8be0ef54dccf
+# >>>   Type: function
+# >>>   Function: get_capital
+# >>>   Arguments: {"city": "mock_string"}
+```
+
 ---
 
 ### 📝 Table of Contents
