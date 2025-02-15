@@ -209,28 +209,24 @@ class MockAI:
         try:
             # Access content through the model's attributes
             content = choice.message.content
-            # Split by character groups instead of words to preserve spacing
-            chars = list(content)
-            num_chunks = min(3, len(chars))
-            chunk_size = max(1, len(chars) // num_chunks)
+            tool_calls = choice.message.tool_calls
             created = int(time.time())
 
-            # For all chunks except the last one
-            for i in range(0, len(chars) - chunk_size, chunk_size):
-                chunk_text = "".join(chars[i : i + chunk_size])
+            # If there are tool calls but no content, yield only the tool calls
+            if tool_calls and not content:
                 chunk = CompletionChunk(
                     id=str(uuid.uuid4()),
                     choices=[
                         CompletionChunk.Choice(
                             delta=CompletionMessage(
                                 role="assistant",
-                                content=chunk_text,
+                                content="",
                                 name=None,
                                 function_call=None,
-                                tool_calls=None,
+                                tool_calls=tool_calls,
                                 tool_call_id=None,
                             ),
-                            finish_reason="length",
+                            finish_reason="tool_calls",
                             index=0,
                             logprobs=None,
                         )
@@ -240,38 +236,71 @@ class MockAI:
                     object="chat.completion",
                 )
                 yield chunk
-                time.sleep(0.2)
+                return
 
-            # Last chunk of text
-            if chars:
-                remaining_text = "".join(
-                    chars[-(len(chars) % chunk_size or chunk_size) :]
-                )
-                chunk = CompletionChunk(
-                    id=str(uuid.uuid4()),
-                    choices=[
-                        CompletionChunk.Choice(
-                            delta=CompletionMessage(
-                                role="assistant",
-                                content=remaining_text,
-                                name=None,
-                                function_call=None,
-                                tool_calls=None,
-                                tool_call_id=None,
-                            ),
-                            finish_reason="stop",
-                            index=0,
-                            logprobs=None,
-                        )
-                    ],
-                    created=created,
-                    model=params["model"],
-                    object="chat.completion",
-                )
-                yield chunk
+            # Split content by character groups if there is content
+            if content:
+                chars = list(content)
+                num_chunks = min(3, len(chars))
+                chunk_size = max(1, len(chars) // num_chunks)
+
+                # For all chunks except the last one
+                for i in range(0, len(chars) - chunk_size, chunk_size):
+                    chunk_text = "".join(chars[i : i + chunk_size])
+                    chunk = CompletionChunk(
+                        id=str(uuid.uuid4()),
+                        choices=[
+                            CompletionChunk.Choice(
+                                delta=CompletionMessage(
+                                    role="assistant",
+                                    content=chunk_text,
+                                    name=None,
+                                    function_call=None,
+                                    tool_calls=None,
+                                    tool_call_id=None,
+                                ),
+                                finish_reason="length",
+                                index=0,
+                                logprobs=None,
+                            )
+                        ],
+                        created=created,
+                        model=params["model"],
+                        object="chat.completion",
+                    )
+                    yield chunk
+                    time.sleep(0.2)
+
+                # Last chunk of text
+                if chars:
+                    remaining_text = "".join(
+                        chars[-(len(chars) % chunk_size or chunk_size) :]
+                    )
+                    chunk = CompletionChunk(
+                        id=str(uuid.uuid4()),
+                        choices=[
+                            CompletionChunk.Choice(
+                                delta=CompletionMessage(
+                                    role="assistant",
+                                    content=remaining_text,
+                                    name=None,
+                                    function_call=None,
+                                    tool_calls=None,
+                                    tool_call_id=None,
+                                ),
+                                finish_reason="stop" if not tool_calls else "length",
+                                index=0,
+                                logprobs=None,
+                            )
+                        ],
+                        created=created,
+                        model=params["model"],
+                        object="chat.completion",
+                    )
+                    yield chunk
 
             # If tool calls are present, yield a final chunk with the tool calls
-            if choice.message.tool_calls:
+            if tool_calls:
                 final_chunk = CompletionChunk(
                     id=str(uuid.uuid4()),
                     choices=[
@@ -281,7 +310,7 @@ class MockAI:
                                 content="",
                                 name=None,
                                 function_call=None,
-                                tool_calls=choice.message.tool_calls,
+                                tool_calls=tool_calls,
                                 tool_call_id=None,
                             ),
                             finish_reason="tool_calls",

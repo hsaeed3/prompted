@@ -697,6 +697,7 @@ def print_stream(stream: Iterator[CompletionChunk]) -> None:
             if hasattr(chunk, 'choices') and chunk.choices:
                 choice = chunk.choices[0]
                 if hasattr(choice, 'delta'):
+                    # Handle content
                     content = ""
                     if isinstance(choice.delta, dict):
                         content = choice.delta.get("content", "")
@@ -705,6 +706,21 @@ def print_stream(stream: Iterator[CompletionChunk]) -> None:
                     
                     if content:
                         print(content, end="", flush=True)
+                    
+                    # Handle tool calls
+                    tool_calls = None
+                    if isinstance(choice.delta, dict):
+                        tool_calls = choice.delta.get("tool_calls")
+                    else:
+                        tool_calls = getattr(choice.delta, "tool_calls", None)
+                    
+                    if tool_calls:
+                        for tool_call in tool_calls:
+                            print("\nTool Call:")
+                            print(f"  ID: {tool_call.id}")
+                            print(f"  Type: {tool_call.type}")
+                            print(f"  Function: {tool_call.function.name}")
+                            print(f"  Arguments: {tool_call.function.arguments}")
         print()  # Add final newline
     except Exception as e:
         logger.error(f"Error printing stream: {e}")
