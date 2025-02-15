@@ -114,7 +114,7 @@ this is in the litellm format
 (opinionation to 100%)
 """
 
-ModelParam: TypeAlias = Union[str, ChatModel]
+ModelParam = Union[str, ChatModel]
 """
 The model to use when creating a chat completion.
 """
