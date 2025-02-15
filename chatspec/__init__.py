@@ -22,13 +22,6 @@ from .state import State
 # add params class to top level
 Params = params.Params
 
-# add types to top level
-Message = types.Message
-Completion = types.Completion
-CompletionChunk = types.CompletionChunk
-Tool = types.Tool
-ToolCall = types.ToolCall
-
 
 __all__ = [
     # utils
@@ -62,11 +55,6 @@ __all__ = [
     "Params",
     # types
     "types",
-    "Message",
-    "Completion",
-    "CompletionChunk",
-    "Tool",
-    "ToolCall",
     # mock
     "MockAI",
     "mock_completion",
