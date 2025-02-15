@@ -193,7 +193,7 @@ class MockAI:
 
     @classmethod
     def _stream_response(
-        cls, choice: Completion.Choice, params: Params
+        cls, choice: Dict[str, Any], params: Params
     ) -> Iterator[CompletionChunk]:
         """
         Simulates streaming by splitting a Completion.Choice into multiple CompletionChunk objects.
@@ -201,7 +201,7 @@ class MockAI:
         a final chunk is yielded with the tool calls.
         """
         try:
-            content = choice.message.get("content", "")
+            content = choice["message"]["content"]
             words = content.split()
             num_chunks = min(3, len(words))
             chunk_size = max(1, len(words) // num_chunks)
@@ -231,7 +231,7 @@ class MockAI:
                 yield chunk
                 time.sleep(0.2)
             # If tool calls are present, yield a final chunk.
-            if tool_calls := choice.message.get("tool_calls"):
+            if tool_calls := choice["message"].get("tool_calls"):
                 final_chunk: CompletionChunk = {
                     "id": str(uuid.uuid4()),
                     "choices": [

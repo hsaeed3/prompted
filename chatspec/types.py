@@ -154,13 +154,13 @@ class ToolCall(TypedDict):
     """
     The ID of the tool call.
     """
+    function: Function
+    """
+    The function that the tool calls.
+    """
     type: Literal["function"]
     """
     The type of the tool. (Always "function" for this type)
-    """
-    function: FunctionCall
-    """
-    The function call details.
     """
 
 
