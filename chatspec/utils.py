@@ -109,12 +109,49 @@ def _make_hashable(obj: Any) -> str:
     Helper function to make an object hashable by converting it to a stable hash string.
     Uses SHA-256 to generate a consistent hash representation of any object.
     """
-    if isinstance(obj, dict):
-        # Sort dict items for consistent hashing
-        obj = {k: obj[k] for k in sorted(obj.keys())}
-    # Convert to JSON bytes with sorted keys for consistent serialization using msgspec
-    json_bytes = msgspec.json.encode(obj, sort_keys=True)
-    return hashlib.sha256(json_bytes).hexdigest()
+    try:
+        # Handle basic types first
+        if isinstance(obj, (str, int, float, bool, bytes)):
+            return hashlib.sha256(str(obj).encode()).hexdigest()
+
+        if isinstance(obj, (tuple, list)):
+            # Recursively handle sequences
+            return hashlib.sha256(
+                ",".join(_make_hashable(x) for x in obj).encode()
+            ).hexdigest()
+        
+        if isinstance(obj, dict):
+            # Sort dict items for consistent hashing
+            return hashlib.sha256(
+                ",".join(
+                    f"{k}:{_make_hashable(v)}"
+                    for k, v in sorted(obj.items())
+                ).encode()
+            ).hexdigest()
+            
+        if isinstance(obj, type):
+            # Handle types (classes)
+            return hashlib.sha256(
+                f"{obj.__module__}.{obj.__name__}".encode()
+            ).hexdigest()
+            
+        if callable(obj):
+            # Handle functions
+            return hashlib.sha256(
+                f"{obj.__module__}.{obj.__name__}".encode()
+            ).hexdigest()
+            
+        if hasattr(obj, "__dict__"):
+            # Use the __dict__ for instance attributes if available
+            return _make_hashable(obj.__dict__)
+        
+        # Fallback for any other types that can be converted to string
+        return hashlib.sha256(str(obj).encode()).hexdigest()
+        
+    except Exception as e:
+        logger.debug(f"Error making object hashable: {e}")
+        # Fallback to a basic string hash
+        return hashlib.sha256(str(type(obj)).encode()).hexdigest()
 
 
 _TYPE_MAPPING = {
@@ -235,7 +272,7 @@ def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion),
+    key=lambda completion: _make_hashable(completion) if completion else "",
 )
 def is_completion(completion: Any) -> bool:
     """
@@ -267,7 +304,7 @@ def is_completion(completion: Any) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion),
+    key=lambda completion: _make_hashable(completion) if completion else "",
 )
 def is_stream(completion: Any) -> bool:
     """
@@ -301,38 +338,25 @@ def is_stream(completion: Any) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda message: _make_hashable(message),
+    key=lambda message: _make_hashable(message) if message else "",
 )
 def is_message(message: Any) -> bool:
-    """
-    Checks if a given object is a valid chat message.
-    (This allows the 'developer' role from the OpenAI specific API.)
-
-    Args:
-        message: The object to check.
-
-    Returns:
-        True if the object is a valid message, False otherwise.
-    """
+    """Checks if a given object is a valid chat message."""
     try:
         if not isinstance(message, dict):
             return False
-        allowed_roles = {
-            "assistant",
-            "user",
-            "system",
-            "tool",
-            "developer",
-        }
+        allowed_roles = {"assistant", "user", "system", "tool", "developer"}
         role = message.get("role")
+        # First check role validity
         if role not in allowed_roles:
             return False
-        if role != "assistant" or "tool_calls" not in message:
-            if "content" not in message or message["content"] is None:
-                return False
-        if role == "tool" and "tool_call_id" not in message:
-            return False
-        return True
+        # Check content and tool_call_id requirements
+        if role == "tool":
+            return bool(message.get("content")) and bool(message.get("tool_call_id"))
+        elif role == "assistant" and "tool_calls" in message:
+            return True
+        # For all other roles, just need content
+        return message.get("content") is not None
     except Exception as e:
         logger.debug(f"Error validating message: {e}")
         return False
@@ -340,7 +364,7 @@ def is_message(message: Any) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda tool: _make_hashable(tool),
+    key=lambda tool: _make_hashable(tool) if tool else "",
 )
 def is_tool(tool: Any) -> bool:
     """
@@ -367,7 +391,7 @@ def is_tool(tool: Any) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda messages: _make_hashable(messages),
+    key=lambda messages: _make_hashable(messages) if messages else "",
 )
 def has_system_prompt(messages: List[Message]) -> bool:
     """
@@ -399,34 +423,30 @@ def has_system_prompt(messages: List[Message]) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion),
+    key=lambda completion: _make_hashable(completion) if completion else "",
 )
 def has_tool_call(completion: Any) -> bool:
     """
     Checks if a given object contains a tool call.
+    
+    Args:
+        completion: The object to check.
+
+    Returns:
+        True if the object contains a tool call, False otherwise.
     """
     try:
         if not is_completion(completion):
             return False
 
-        if is_stream(completion):
-            for chunk in completion:
-                choices = _get_value(chunk, "choices", [])
-                if choices:
-                    first_choice = choices[0]
-                    delta = _get_value(first_choice, "delta", {})
-                    tool_calls = _get_value(delta, "tool_calls", None)
-                    if tool_calls:
-                        return True
-        else:
-            choices = _get_value(completion, "choices", [])
-            if choices:
-                first_choice = choices[0]
-                message = _get_value(first_choice, "message", {})
-                tool_calls = _get_value(message, "tool_calls", None)
-                if tool_calls:
-                    return True
-        return False
+        choices = _get_value(completion, "choices", [])
+        if not choices:
+            return False
+
+        first_choice = choices[0]
+        message = _get_value(first_choice, "message", {})
+        tool_calls = _get_value(message, "tool_calls", [])
+        return bool(tool_calls)
     except Exception as e:
         logger.debug(f"Error checking for tool call: {e}")
         return False
@@ -567,7 +587,7 @@ def parse_model_from_completion(
         raise
 
 
-def parse_model_from_steam(
+def parse_model_from_stream(
     stream: Any, model: type[BaseModel]
 ) -> BaseModel:
     """
@@ -643,16 +663,11 @@ def get_tool_calls(completion: Any) -> List[Dict[str, Any]]:
     try:
         if not has_tool_call(completion):
             return []
-        if is_stream(completion):
-            return _get_value(
-                dump_stream_to_message(completion), "tool_calls", []
-            )
         choices = _get_value(completion, "choices", [])
-        if choices:
-            first_choice = choices[0]
-            message = _get_value(first_choice, "message", {})
-            return _get_value(message, "tool_calls", [])
-        return []
+        if not choices:
+            return []
+        message = _get_value(choices[0], "message", {})
+        return _get_value(message, "tool_calls", [])
     except Exception as e:
         logger.debug(f"Error getting tool calls: {e}")
         return []
@@ -660,21 +675,12 @@ def get_tool_calls(completion: Any) -> List[Dict[str, Any]]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion),
+    key=lambda completion, tool: _make_hashable((completion, tool.__name__ if callable(tool) else tool)) if completion else "",
 )
 def was_tool_called(
     completion: Any, tool: Union[str, Callable, Dict[str, Any]]
 ) -> bool:
-    """
-    Checks if a given tool was called in a chat completion or stream.
-
-    Args:
-        completion: A chat completion object.
-        tool: The tool to check for (can be a function, dict, or string name).
-
-    Returns:
-        True if the tool was called; otherwise False.
-    """
+    """Checks if a given tool was called in a chat completion."""
     try:
         tool_name = ""
         if isinstance(tool, str):
@@ -688,7 +694,7 @@ def was_tool_called(
 
         tool_calls = get_tool_calls(completion)
         return any(
-            call.get("function", {}).get("name") == tool_name
+            _get_value(_get_value(call, "function", {}), "name") == tool_name
             for call in tool_calls
         )
     except Exception as e:
@@ -768,7 +774,7 @@ def create_tool_message(completion: Any, output: Any) -> Message:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda tool: _make_hashable(tool),
+    key=lambda tool: _make_hashable(tool) if tool else "",
 )
 def convert_to_tool(
     tool: Union[BaseModel, Callable, Dict[str, Any]],
@@ -931,85 +937,26 @@ def convert_to_tools(
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda messages: _make_hashable(messages),
+    key=lambda messages: _make_hashable(messages) if messages else "",
 )
 def normalize_messages(messages: Any) -> List[Message]:
-    """
-    Formats the input into a list of chat completion messages.
-
-    Args:
-        messages: Input messages (string, single message, or list of messages).
-
-    Returns:
-        A normalized list of message dictionaries.
-    """
+    """Formats the input into a list of chat completion messages."""
     try:
         if isinstance(messages, str):
             return [{"role": "user", "content": messages}]
         if not isinstance(messages, list):
             messages = [messages]
 
-        normalized_thread = []
-        base_fields = {"role", "content", "name"}
-        assistant_fields = {"function_call", "tool_calls", "refusal"}
-        tool_fields = {"tool_call_id"}
-
+        normalized = []
         for message in messages:
-            normalized_msg = {}
-            if hasattr(message, "model_fields"):
-                for field in base_fields:
-                    value = _get_value(message, field)
-                    if value is not None:
-                        normalized_msg[field] = value
-                role = _get_value(message, "role")
-                if role == "assistant":
-                    for field in assistant_fields:
-                        value = _get_value(message, field)
-                        if value is not None:
-                            normalized_msg[field] = value
-                elif role == "tool":
-                    for field in tool_fields:
-                        value = _get_value(message, field)
-                        if value is not None:
-                            normalized_msg[field] = value
-            elif isinstance(message, dict):
-                for field in base_fields:
-                    if field in message and message[field] is not None:
-                        normalized_msg[field] = message[field]
-                role = message.get("role")
-                if role == "assistant":
-                    for field in assistant_fields:
-                        if field in message and message[field] is not None:
-                            normalized_msg[field] = message[field]
-                elif role == "tool":
-                    for field in tool_fields:
-                        if field in message and message[field] is not None:
-                            normalized_msg[field] = message[field]
+            if isinstance(message, dict):
+                # Create a new dict to avoid modifying the original
+                normalized.append({**message})
+            elif hasattr(message, "model_dump"):
+                normalized.append(message.model_dump())
             else:
                 raise ValueError(f"Invalid message format: {message}")
-
-            if "role" not in normalized_msg:
-                raise ValueError(
-                    f"Message missing required 'role' field: {message}"
-                )
-            if "content" not in normalized_msg and not (
-                normalized_msg.get("role") == "assistant"
-                and "tool_calls" in normalized_msg
-            ):
-                raise ValueError(
-                    f"Message must have 'content' or tool_calls if assistant: {message}"
-                )
-            if (
-                normalized_msg.get("role") == "tool"
-                and "tool_call_id" not in normalized_msg
-            ):
-                raise ValueError(
-                    f"Tool message missing required 'tool_call_id' field: {message}"
-                )
-
-            normalized_thread.append(normalized_msg)
-
-        return normalized_thread
+        return normalized
     except Exception as e:
         logger.debug(f"Error normalizing messages: {e}")
         raise
@@ -1017,7 +964,8 @@ def normalize_messages(messages: Any) -> List[Message]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda messages: _make_hashable(messages),
+    key=lambda messages, system_prompt=None, blank=False: 
+        _make_hashable((messages, system_prompt, blank)),
 )
 def normalize_system_prompt(
     messages: List[Message],
@@ -1090,7 +1038,8 @@ def normalize_system_prompt(
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda type_hint: _make_hashable(type_hint),
+    key=lambda type_hint, index=None, description=None, default=...: 
+        _make_hashable((type_hint, index, description, default)),
 )
 def create_field_mapping(
     type_hint: Type,
@@ -1179,12 +1128,11 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda target: _make_hashable(target),
+    key=lambda target, init=False, name=None, description=None, default=...: 
+        _make_hashable((target, init, name, description, default)),
 )
 def convert_to_pydantic_model(
-    target: Union[
-        Type, Sequence[Type], Dict[str, Any], BaseModel, Callable
-    ],
+    target: Union[Type, Sequence[Type], Dict[str, Any], BaseModel, Callable],
     init: bool = False,
     name: Optional[str] = None,
     description: Optional[str] = None,
@@ -1296,7 +1244,7 @@ def convert_to_pydantic_model(
 # this one is kinda super specific
 @cached(
     cache=_chatspec_cache,
-    key=lambda target: _make_hashable(target),
+    key=lambda target, name=None: _make_hashable((target, name)) if target else "",
 )
 def create_literal_pydantic_model(
     target: Union[Type, List[str]],
@@ -1497,7 +1445,10 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda target: _make_hashable(target),
+    key=lambda target, indent=0, code_block=False, compact=False, show_types=True, 
+          show_title=True, show_bullets=True, show_docs=True, bullet_style="-", _visited=None:
+        _make_hashable((target, indent, code_block, compact, show_types, show_title, 
+                       show_bullets, show_docs, bullet_style)),
 )
 def markdownify(
     target: Any,
@@ -1613,7 +1564,7 @@ def markdownify(
                 "\n".join(filter(None, [header] + field_lines))
                 if show_title
                 else "\n".join(field_lines)
-            )
+        )
     except Exception as e:
         logger.error(
             f"Error formatting pydantic model target {target} to markdown: {e}"
