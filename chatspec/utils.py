@@ -605,20 +605,47 @@ def dump_stream_to_message(stream: Any) -> Message:
 
 def dump_stream_to_completion(stream: Any) -> Completion:
     """
-    Aggregates a stream of ChatCompletionChunks into a single Completion.
+    Aggregates a stream of ChatCompletionChunks into a single Completion using the standardized Pydantic models.
+    
+    Instead of creating a dictionary for each choice, this function now creates a proper
+    CompletionMessage (and Completion.Choice) so that the resulting Completion adheres to the
+    models and types expected throughout the library (as seen in chatspec/mock.py).
+
+    Returns:
+        A Completion object as defined in `chatspec/types.py`.
     """
     try:
+        from .types import Completion, CompletionMessage  # using the models directly
+
         choices = []
         for chunk in stream:
-            delta = _get_value(
-                _get_value(chunk.choices[0], "delta", {}), "content", ""
+            # Safely extract content from the chunk's delta field.
+            delta_content = _get_value(_get_value(chunk.choices[0], "delta", {}), "content", "")
+            # Create a proper CompletionMessage instance.
+            message = CompletionMessage(
+                role="assistant",
+                content=delta_content if delta_content is not None else "",
+                name=None,
+                function_call=None,
+                tool_calls=None,
+                tool_call_id=None
             )
-            choices.append(
-                {"message": {"role": "assistant", "content": delta}}
+            # Wrap the message in a Completion.Choice instance.
+            choice_obj = Completion.Choice(
+                message=message,
+                finish_reason="stop",  # default finish_reason; adjust as needed
+                index=0,
+                logprobs=None
             )
+            choices.append(choice_obj)
 
+        # Construct and return the Completion object using the proper types.
         return Completion(
-            id="stream", choices=choices, created=0, model="stream"
+            id="stream",
+            choices=choices,
+            created=0,
+            model="stream",
+            object="chat.completion"
         )
     except Exception as e:
         logger.debug(f"Error dumping stream to completion: {e}")
