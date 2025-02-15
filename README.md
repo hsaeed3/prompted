@@ -35,7 +35,7 @@ stream = chatspec.mock_completion(
     # - list of messages
     # - single message (pydantic or dict)
     messages = chatspec.normalize_messages("What is the capital of France?"),
-    # convert tools pydantic functions / pydantic models / and more to tools easily
+    # convert python functions / pydantic models / and more to tools easily
     tools = [chatspec.convert_to_tool(get_capital)],
     # streaming is supported & properly typed / handled
     stream = True
