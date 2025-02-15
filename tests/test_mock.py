@@ -28,15 +28,11 @@ def test_mock_completion_basic():
     messages = [{"role": "user", "content": "Hello"}]
     response = mock_completion(messages=messages)
 
-    assert "id" in response
-    assert "choices" in response
-    assert len(response["choices"]) == 1
-    assert response["choices"][0]["message"]["role"] == "assistant"
-    assert (
-        "Mock response to: Hello"
-        in response["choices"][0]["message"]["content"]
-    )
-    assert response["choices"][0]["finish_reason"] == "stop"
+    assert response.id is not None
+    assert len(response.choices) == 1
+    assert response.choices[0].message.role == "assistant"
+    assert "Mock response to: Hello" in response.choices[0].message.content
+    assert response.choices[0].finish_reason == "stop"
 
 
 def test_mock_completion_streaming():
@@ -49,10 +45,9 @@ def test_mock_completion_streaming():
     assert len(chunks) > 0
 
     for chunk in chunks:
-        assert "id" in chunk
-        assert "choices" in chunk
-        assert len(chunk["choices"]) == 1
-        assert "delta" in chunk["choices"][0]
+        assert chunk.id is not None
+        assert len(chunk.choices) == 1
+        assert chunk.choices[0].delta is not None
 
 
 def test_mock_completion_with_tools():
@@ -75,11 +70,11 @@ def test_mock_completion_with_tools():
 
     response = mock_completion(messages=messages, tools=tools)
 
-    assert "tool_calls" in response["choices"][0]["message"]
-    assert response["choices"][0]["finish_reason"] == "tool_calls"
-    tool_call = response["choices"][0]["message"]["tool_calls"][0]
-    assert tool_call["type"] == "function"
-    assert tool_call["function"]["name"] == "test_tool"
+    assert response.choices[0].message.tool_calls is not None
+    assert response.choices[0].finish_reason == "tool_calls"
+    tool_call = response.choices[0].message.tool_calls[0]
+    assert tool_call.type == "function"
+    assert tool_call.function.name == "test_tool"
 
 
 def test_mock_completion_streaming_with_tools():
@@ -106,8 +101,8 @@ def test_mock_completion_streaming_with_tools():
 
     # Last chunk should contain tool calls
     last_chunk = chunks[-1]
-    assert "tool_calls" in last_chunk["choices"][0]["delta"]
-    assert last_chunk["choices"][0]["finish_reason"] == "tool_calls"
+    assert last_chunk.choices[0].delta.tool_calls is not None
+    assert last_chunk.choices[0].finish_reason == "tool_calls"
 
 
 def test_mock_completion_error_handling():
@@ -121,10 +116,9 @@ def test_mock_ai_create_method():
     messages = [{"role": "user", "content": "Hello"}]
     response = MockAI.create(messages=messages)
 
-    assert "id" in response
-    assert "choices" in response
-    assert len(response["choices"]) == 1
-    assert response["model"] == "gpt-4o-mini"  # Default model
+    assert response.id is not None
+    assert len(response.choices) == 1
+    assert response.model == "gpt-4o-mini"  # Default model
 
 
 def test_mock_completion_parameters():
@@ -138,9 +132,8 @@ def test_mock_completion_parameters():
         user="test-user",
     )
 
-    assert response["model"] == "custom-model"
-    assert "choices" in response
-    assert len(response["choices"]) == 1
+    assert response.model == "custom-model"
+    assert len(response.choices) == 1
 
 
 if __name__ == "__main__":
