@@ -15,7 +15,7 @@ pip install chatspec
 
 #  📚 Documentation & Examples
 
-`promptspec` provides a 'prethora' (as many as would actually be useful) of types, models & methods for validating, converting and augmenting objects used in the OpenAI chat completions API specification, a `State` class for managing messages threads for agentic application, as well as a `MockAI` client & `mock_completion()` method for creating mock llm responses quickly. I use [Instructor](https://github.com/instructor-ai/instructor) for all of my structured outputs, so `Pydantic` is a core part of this library. The point of this library is to provide a common interface for methods that I have found myself needing to replicate across multiple projects.
+`chatspec` provides a 'prethora' (as many as would actually be useful) of types, models & methods for validating, converting and augmenting objects used in the OpenAI chat completions API specification, a `State` class for managing messages threads for agentic application, as well as a `MockAI` client & `mock_completion()` method for creating mock llm responses quickly. I use [Instructor](https://github.com/instructor-ai/instructor) for all of my structured outputs, so `Pydantic` is a core part of this library. The point of this library is to provide a common interface for methods that I have found myself needing to replicate across multiple projects.
 
 ## ✨ Quickstart
 
