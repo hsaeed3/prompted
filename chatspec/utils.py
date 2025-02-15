@@ -29,10 +29,13 @@ from typing import (
     Sequence,
     Set,
     get_type_hints,
+    Iterator,
 )
 from .types import (
     Completion,
     CompletionChunk,
+    CompletionMessage,
+    CompletionToolCall,
     Message,
     MessageContentImagePart,
     MessageContentAudioPart,
@@ -130,7 +133,7 @@ def _make_hashable(obj: Any) -> str:
             return hashlib.sha256(
                 ",".join(_make_hashable(x) for x in obj).encode()
             ).hexdigest()
-        
+
         if isinstance(obj, dict):
             # Sort dict items for consistent hashing
             return hashlib.sha256(
@@ -139,26 +142,26 @@ def _make_hashable(obj: Any) -> str:
                     for k, v in sorted(obj.items())
                 ).encode()
             ).hexdigest()
-            
+
         if isinstance(obj, type):
             # Handle types (classes)
             return hashlib.sha256(
                 f"{obj.__module__}.{obj.__name__}".encode()
             ).hexdigest()
-            
+
         if callable(obj):
             # Handle functions
             return hashlib.sha256(
                 f"{obj.__module__}.{obj.__name__}".encode()
             ).hexdigest()
-            
+
         if hasattr(obj, "__dict__"):
             # Use the __dict__ for instance attributes if available
             return _make_hashable(obj.__dict__)
-        
+
         # Fallback for any other types that can be converted to string
         return hashlib.sha256(str(obj).encode()).hexdigest()
-        
+
     except Exception as e:
         logger.debug(f"Error making object hashable: {e}")
         # Fallback to a basic string hash
@@ -206,6 +209,30 @@ class _StreamPassthrough:
     def __iter__(self):
         if not self._consumed:
             for chunk in self._stream:
+                # Ensure chunk.choices[0].delta is a CompletionMessage
+                if hasattr(chunk, "choices") and chunk.choices:
+                    choice = chunk.choices[0]
+                    if hasattr(choice, "delta"):
+                        content = ""
+                        tool_calls = None
+                        
+                        # Get content and tool_calls from delta
+                        if isinstance(choice.delta, dict):
+                            content = choice.delta.get("content", "")
+                            tool_calls = choice.delta.get("tool_calls")
+                        else:
+                            content = getattr(choice.delta, "content", "")
+                            tool_calls = getattr(choice.delta, "tool_calls", None)
+
+                        # Create a proper CompletionMessage with empty string as default content
+                        choice.delta = CompletionMessage(
+                            role="assistant",
+                            content="" if content is None else content,  # Ensure content is never None
+                            name=None,
+                            function_call=None,
+                            tool_calls=tool_calls,
+                            tool_call_id=None,
+                        )
                 self.chunks.append(chunk)
                 yield chunk
             self._consumed = True
@@ -228,6 +255,25 @@ class _AsyncStreamPassthrough:
     async def __aiter__(self):
         if not self._consumed:
             async for chunk in self._async_stream:
+                # Ensure chunk.choices[0].delta is a CompletionMessage
+                if hasattr(chunk, "choices") and chunk.choices:
+                    choice = chunk.choices[0]
+                    if hasattr(choice, "delta"):
+                        content = ""
+                        if isinstance(choice.delta, dict):
+                            content = choice.delta.get("content", "")
+                        else:
+                            content = getattr(choice.delta, "content", "")
+
+                        # Create a proper CompletionMessage
+                        choice.delta = CompletionMessage(
+                            role="assistant",
+                            content=content,
+                            name=None,
+                            function_call=None,
+                            tool_calls=None,
+                            tool_call_id=None,
+                        )
                 self.chunks.append(chunk)
                 yield chunk
             self._consumed = True
@@ -283,7 +329,9 @@ def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion) if completion else "",
+    key=lambda completion: _make_hashable(completion)
+    if completion
+    else "",
 )
 def is_completion(completion: Any) -> bool:
     """
@@ -315,7 +363,9 @@ def is_completion(completion: Any) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion) if completion else "",
+    key=lambda completion: _make_hashable(completion)
+    if completion
+    else "",
 )
 def is_stream(completion: Any) -> bool:
     """
@@ -356,14 +406,22 @@ def is_message(message: Any) -> bool:
     try:
         if not isinstance(message, dict):
             return False
-        allowed_roles = {"assistant", "user", "system", "tool", "developer"}
+        allowed_roles = {
+            "assistant",
+            "user",
+            "system",
+            "tool",
+            "developer",
+        }
         role = message.get("role")
         # First check role validity
         if role not in allowed_roles:
             return False
         # Check content and tool_call_id requirements
         if role == "tool":
-            return bool(message.get("content")) and bool(message.get("tool_call_id"))
+            return bool(message.get("content")) and bool(
+                message.get("tool_call_id")
+            )
         elif role == "assistant" and "tool_calls" in message:
             return True
         # For all other roles, just need content
@@ -434,12 +492,14 @@ def has_system_prompt(messages: List[Message]) -> bool:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion: _make_hashable(completion) if completion else "",
+    key=lambda completion: _make_hashable(completion)
+    if completion
+    else "",
 )
 def has_tool_call(completion: Any) -> bool:
     """
     Checks if a given object contains a tool call.
-    
+
     Args:
         completion: The object to check.
 
@@ -493,7 +553,8 @@ def dump_stream_to_message(stream: Any) -> Message:
                 if content:
                     content_parts.append(content)
 
-                tool_calls = _get_value(delta, "tool_calls", [])
+                # Add null check for tool_calls
+                tool_calls = _get_value(delta, "tool_calls", []) or []
                 for tool_call in tool_calls:
                     index = _get_value(tool_call, "index")
                     if index is None:
@@ -627,33 +688,27 @@ def parse_model_from_stream(
         raise
 
 
-def print_stream(stream: Any) -> None:
+def print_stream(stream: Iterator[CompletionChunk]) -> None:
     """
-    Prints a stream of chat completion chunks in a human-readable format.
-    Shows both content and tool calls if present.
+    Helper method to print a stream of completion chunks.
     """
     try:
-        if is_stream(stream):
-            for chunk in stream:
-                delta = chunk.choices[0].delta
-
-                # Handle content
-                if hasattr(delta, "content") and delta.content:
-                    print(delta.content, end="", flush=True)
-
-                # Handle tool calls
-                if hasattr(delta, "tool_calls"):
-                    tool_calls = delta.tool_calls
-                    if tool_calls:
-                        for tool_call in tool_calls:
-                            if hasattr(tool_call, "function"):
-                                func = tool_call.function
-                                print("\n=== Tool Call ===")
-                                print(f"Name: {func.name}")
-                                print(f"Arguments: {func.arguments}")
-                                print("================\n")
+        for chunk in stream:
+            if hasattr(chunk, 'choices') and chunk.choices:
+                choice = chunk.choices[0]
+                if hasattr(choice, 'delta'):
+                    content = ""
+                    if isinstance(choice.delta, dict):
+                        content = choice.delta.get("content", "")
+                    else:
+                        content = getattr(choice.delta, "content", "")
+                    
+                    if content:
+                        print(content, end="", flush=True)
+        print()  # Add final newline
     except Exception as e:
-        logger.debug(f"Error printing stream: {e}")
+        logger.error(f"Error printing stream: {e}")
+        raise ChatSpecError(f"Failed to print stream: {str(e)}")
 
 
 # ------------------------------------------------------------------------------
@@ -686,7 +741,11 @@ def get_tool_calls(completion: Any) -> List[Dict[str, Any]]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda completion, tool: _make_hashable((completion, tool.__name__ if callable(tool) else tool)) if completion else "",
+    key=lambda completion, tool: _make_hashable(
+        (completion, tool.__name__ if callable(tool) else tool)
+    )
+    if completion
+    else "",
 )
 def was_tool_called(
     completion: Any, tool: Union[str, Callable, Dict[str, Any]]
@@ -705,7 +764,8 @@ def was_tool_called(
 
         tool_calls = get_tool_calls(completion)
         return any(
-            _get_value(_get_value(call, "function", {}), "name") == tool_name
+            _get_value(_get_value(call, "function", {}), "name")
+            == tool_name
             for call in tool_calls
         )
     except Exception as e:
@@ -975,8 +1035,9 @@ def normalize_messages(messages: Any) -> List[Message]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda messages, system_prompt=None, blank=False: 
-        _make_hashable((messages, system_prompt, blank)),
+    key=lambda messages, system_prompt=None, blank=False: _make_hashable(
+        (messages, system_prompt, blank)
+    ),
 )
 def normalize_system_prompt(
     messages: List[Message],
@@ -1032,8 +1093,8 @@ def normalize_system_prompt(
     except Exception as e:
         logger.debug(f"Error normalizing system prompt: {e}")
         raise
-    
-    
+
+
 # these are for using the 'contentpart' types specifically
 # by setting content to type[list], you can define images & input audio.
 def create_image_message(
@@ -1043,7 +1104,7 @@ def create_image_message(
 ) -> Message:
     """
     Creates a message with image content from a url, path, or bytes.
-    
+
     This method is also useful for 'injecting' an image into an existing
     message's content.
 
@@ -1060,40 +1121,31 @@ def create_image_message(
 
     # Convert image to base64 if needed
     if isinstance(image, Path):
-        with open(image, 'rb') as f:
+        with open(image, "rb") as f:
             image_bytes = f.read()
             image = f"data:image/png;base64,{base64.b64encode(image_bytes).decode()}"
     elif isinstance(image, bytes):
         image = f"data:image/png;base64,{base64.b64encode(image).decode()}"
     elif isinstance(image, str) and not urlparse(image).scheme:
         # Handle string path
-        with open(image, 'rb') as f:
+        with open(image, "rb") as f:
             image_bytes = f.read()
             image = f"data:image/png;base64,{base64.b64encode(image_bytes).decode()}"
-    
+
     image_part: MessageContentImagePart = {
         "type": "image_url",
-        "image_url": {
-            "url": image,
-            "detail": detail
-        }
+        "image_url": {"url": image, "detail": detail},
     }
 
     if message is None:
-        return {
-            "role": "user",
-            "content": [image_part]
-        }
-    
+        return {"role": "user", "content": [image_part]}
+
     if isinstance(message, str):
         text_part: MessageContentTextPart = {
             "type": "text",
-            "text": message
+            "text": message,
         }
-        return {
-            "role": "user", 
-            "content": [text_part, image_part]
-        }
+        return {"role": "user", "content": [text_part, image_part]}
 
     # Handle existing Message dict
     if not message.get("content"):
@@ -1101,11 +1153,11 @@ def create_image_message(
     elif isinstance(message["content"], str):
         message["content"] = [
             {"type": "text", "text": message["content"]},
-            image_part
+            image_part,
         ]
     elif isinstance(message["content"], (list, tuple)):
         message["content"] = list(message["content"]) + [image_part]
-    
+
     return message
 
 
@@ -1130,40 +1182,31 @@ def create_input_audio_message(
 
     # Convert audio to base64 if needed
     if isinstance(audio, Path):
-        with open(audio, 'rb') as f:
+        with open(audio, "rb") as f:
             audio_bytes = f.read()
             audio = base64.b64encode(audio_bytes).decode()
     elif isinstance(audio, bytes):
         audio = base64.b64encode(audio).decode()
     elif isinstance(audio, str) and not urlparse(audio).scheme:
         # Handle string path
-        with open(audio, 'rb') as f:
+        with open(audio, "rb") as f:
             audio_bytes = f.read()
             audio = base64.b64encode(audio_bytes).decode()
 
     audio_part: MessageContentAudioPart = {
         "type": "input_audio",
-        "input_audio": {
-            "data": audio,
-            "format": format
-        }
+        "input_audio": {"data": audio, "format": format},
     }
 
     if message is None:
-        return {
-            "role": "user",
-            "content": [audio_part]
-        }
+        return {"role": "user", "content": [audio_part]}
 
     if isinstance(message, str):
         text_part: MessageContentTextPart = {
             "type": "text",
-            "text": message
+            "text": message,
         }
-        return {
-            "role": "user",
-            "content": [text_part, audio_part]
-        }
+        return {"role": "user", "content": [text_part, audio_part]}
 
     # Handle existing Message dict
     if not message.get("content"):
@@ -1171,13 +1214,13 @@ def create_input_audio_message(
     elif isinstance(message["content"], str):
         message["content"] = [
             {"type": "text", "text": message["content"]},
-            audio_part
+            audio_part,
         ]
     elif isinstance(message["content"], (list, tuple)):
         message["content"] = list(message["content"]) + [audio_part]
 
     return message
-    
+
 
 # ------------------------------------------------------------------------------
 # pydantic models
@@ -1194,8 +1237,10 @@ def create_input_audio_message(
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda type_hint, index=None, description=None, default=...: 
-        _make_hashable((type_hint, index, description, default)),
+    key=lambda type_hint,
+    index=None,
+    description=None,
+    default=...: _make_hashable((type_hint, index, description, default)),
 )
 def create_field_mapping(
     type_hint: Type,
@@ -1284,11 +1329,18 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda target, init=False, name=None, description=None, default=...: 
-        _make_hashable((target, init, name, description, default)),
+    key=lambda target,
+    init=False,
+    name=None,
+    description=None,
+    default=...: _make_hashable(
+        (target, init, name, description, default)
+    ),
 )
 def convert_to_pydantic_model(
-    target: Union[Type, Sequence[Type], Dict[str, Any], BaseModel, Callable],
+    target: Union[
+        Type, Sequence[Type], Dict[str, Any], BaseModel, Callable
+    ],
     init: bool = False,
     name: Optional[str] = None,
     description: Optional[str] = None,
@@ -1400,7 +1452,9 @@ def convert_to_pydantic_model(
 # this one is kinda super specific
 @cached(
     cache=_chatspec_cache,
-    key=lambda target, name=None: _make_hashable((target, name)) if target else "",
+    key=lambda target, name=None: _make_hashable((target, name))
+    if target
+    else "",
 )
 def create_literal_pydantic_model(
     target: Union[Type, List[str]],
@@ -1601,10 +1655,28 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 
 @cached(
     cache=_chatspec_cache,
-    key=lambda target, indent=0, code_block=False, compact=False, show_types=True, 
-          show_title=True, show_bullets=True, show_docs=True, bullet_style="-", _visited=None:
-        _make_hashable((target, indent, code_block, compact, show_types, show_title, 
-                       show_bullets, show_docs, bullet_style)),
+    key=lambda target,
+    indent=0,
+    code_block=False,
+    compact=False,
+    show_types=True,
+    show_title=True,
+    show_bullets=True,
+    show_docs=True,
+    bullet_style="-",
+    _visited=None: _make_hashable(
+        (
+            target,
+            indent,
+            code_block,
+            compact,
+            show_types,
+            show_title,
+            show_bullets,
+            show_docs,
+            bullet_style,
+        )
+    ),
 )
 def markdownify(
     target: Any,
@@ -1720,7 +1792,7 @@ def markdownify(
                 "\n".join(filter(None, [header] + field_lines))
                 if show_title
                 else "\n".join(field_lines)
-        )
+            )
     except Exception as e:
         logger.error(
             f"Error formatting pydantic model target {target} to markdown: {e}"

@@ -6,8 +6,10 @@ for chat completions, as well as the mock_completion() method; similar to litell
 completion() method.
 """
 
+
 import time
 import uuid
+import json
 from typing import (
     Any,
     Dict,
@@ -18,8 +20,16 @@ from typing import (
     Optional,
     Union,
     overload,
+    get_args
 )
-from .types import Completion, CompletionChunk, Message, Tool
+from .types import (
+    Completion,
+    CompletionChunk,
+    CompletionMessage,
+    Tool,
+    CompletionFunction,
+    CompletionToolCall,
+)
 from .params import (
     Params,
     ModelParam,
@@ -177,15 +187,13 @@ class MockAI:
                 # Non-streaming mode: generate a mock Completion
                 choice = cls._create_mock_response_choice(params)
                 logger.debug(f"Mock completion choice: {choice}")
-                comp: Completion = {
-                    "id": str(uuid.uuid4()),
-                    "choices": [choice],
-                    "created": int(time.time()),
-                    "model": params["model"],
-                    "object": "chat.completion",
-                }
-                logger.debug(f"Mock completion: {comp}")
-                return comp
+                return Completion(
+                    id=str(uuid.uuid4()),
+                    choices=[choice],
+                    created=int(time.time()),
+                    model=params["model"],
+                    object="chat.completion",
+                )
         except MockAIError:
             raise
         except Exception as e:
@@ -193,66 +201,98 @@ class MockAI:
 
     @classmethod
     def _stream_response(
-        cls, choice: Dict[str, Any], params: Params
+        cls, choice: Completion.Choice, params: Params
     ) -> Iterator[CompletionChunk]:
         """
         Simulates streaming by splitting a Completion.Choice into multiple CompletionChunk objects.
-        Yields each chunk sequentially with a small delay. If the original choice contains tool calls,
-        a final chunk is yielded with the tool calls.
         """
         try:
-            content = choice["message"]["content"]
-            words = content.split()
-            num_chunks = min(3, len(words))
-            chunk_size = max(1, len(words) // num_chunks)
+            # Access content through the model's attributes
+            content = choice.message.content
+            # Split by character groups instead of words to preserve spacing
+            chars = list(content)
+            num_chunks = min(3, len(chars))
+            chunk_size = max(1, len(chars) // num_chunks)
             created = int(time.time())
-            for i in range(0, len(words), chunk_size):
-                chunk_text = " ".join(words[i : i + chunk_size])
-                chunk: CompletionChunk = {
-                    "id": str(uuid.uuid4()),
-                    "choices": [
-                        {
-                            "delta": {
-                                "role": "assistant",
-                                "content": chunk_text,
-                            },
-                            "finish_reason": None,
-                            "index": 0,
-                            "logprobs": None,
-                        }
+
+            # For all chunks except the last one
+            for i in range(0, len(chars) - chunk_size, chunk_size):
+                chunk_text = "".join(chars[i : i + chunk_size])
+                chunk = CompletionChunk(
+                    id=str(uuid.uuid4()),
+                    choices=[
+                        CompletionChunk.Choice(
+                            delta=CompletionMessage(
+                                role="assistant",
+                                content=chunk_text,
+                                name=None,
+                                function_call=None,
+                                tool_calls=None,
+                                tool_call_id=None,
+                            ),
+                            finish_reason="length",
+                            index=0,
+                            logprobs=None,
+                        )
                     ],
-                    "created": created,
-                    "model": params["model"],
-                    "object": "chat.completion",
-                    "service_tier": None,
-                    "system_fingerprint": None,
-                    "usage": None,
-                }
+                    created=created,
+                    model=params["model"],
+                    object="chat.completion",
+                )
                 yield chunk
                 time.sleep(0.2)
-            # If tool calls are present, yield a final chunk.
-            if tool_calls := choice["message"].get("tool_calls"):
-                final_chunk: CompletionChunk = {
-                    "id": str(uuid.uuid4()),
-                    "choices": [
-                        {
-                            "delta": {
-                                "role": "assistant",
-                                "content": "",
-                                "tool_calls": tool_calls,
-                            },
-                            "finish_reason": "tool_calls",
-                            "index": 0,
-                            "logprobs": None,
-                        }
+
+            # Last chunk of text
+            if chars:
+                remaining_text = "".join(
+                    chars[-(len(chars) % chunk_size or chunk_size) :]
+                )
+                chunk = CompletionChunk(
+                    id=str(uuid.uuid4()),
+                    choices=[
+                        CompletionChunk.Choice(
+                            delta=CompletionMessage(
+                                role="assistant",
+                                content=remaining_text,
+                                name=None,
+                                function_call=None,
+                                tool_calls=None,
+                                tool_call_id=None,
+                            ),
+                            finish_reason="stop",
+                            index=0,
+                            logprobs=None,
+                        )
                     ],
-                    "created": created,
-                    "model": params["model"],
-                    "object": "chat.completion",
-                    "service_tier": None,
-                    "system_fingerprint": None,
-                    "usage": None,
-                }
+                    created=created,
+                    model=params["model"],
+                    object="chat.completion",
+                )
+                yield chunk
+
+            # If tool calls are present, yield a final chunk with the tool calls
+            if choice.message.tool_calls:
+                final_chunk = CompletionChunk(
+                    id=str(uuid.uuid4()),
+                    choices=[
+                        CompletionChunk.Choice(
+                            delta=CompletionMessage(
+                                role="assistant",
+                                content="",
+                                name=None,
+                                function_call=None,
+                                tool_calls=choice.message.tool_calls,
+                                tool_call_id=None,
+                            ),
+                            finish_reason="tool_calls",
+                            index=0,
+                            logprobs=None,
+                        )
+                    ],
+                    created=created,
+                    model=params["model"],
+                    object="chat.completion",
+                )
                 yield final_chunk
         except Exception as e:
             raise MockAIError(f"Error in streaming response: {str(e)}")
@@ -269,36 +309,77 @@ class MockAI:
             user_input = (
                 messages[-1].get("content", "") if messages else ""
             )
-            message: Message = {
-                "role": "assistant",
-                "content": f"Mock response to: {user_input}",
-            }
+            
+            # Initialize tool_calls
+            tool_calls: List[CompletionToolCall] = []
             finish_reason = "stop"
-            if tools := params.get("tools"):
+            
+            # Process tools if present
+            if tools := params.get('tools'):
+                logger.debug(f"Raw tools input: {tools}")
                 try:
-                    tool_name = next(iter(tools.keys()))
-                    tool_calls = [
-                        {
-                            "id": str(uuid.uuid4()),
-                            "type": "function",
-                            "function": {
-                                "name": tool_name,
-                                "arguments": "{}",
-                            },
-                        }
-                    ]
-                    message["tool_calls"] = tool_calls
-                    finish_reason = "tool_calls"
+                    # Handle tools dictionary
+                    if isinstance(tools, dict):
+                        for tool_data in tools.values():
+                            logger.debug(f"Processing tool data: {tool_data}")
+                            if isinstance(tool_data, dict) and tool_data.get("type") == "function":
+                                # Generate mock arguments based on parameters
+                                mock_args = {}
+                                if "parameters" in tool_data["function"]:
+                                    params_schema = tool_data["function"]["parameters"]
+                                    if "properties" in params_schema:
+                                        for param_name, param_info in params_schema["properties"].items():
+                                            # Generate mock values based on type
+                                            if param_info.get("type") == "string":
+                                                mock_args[param_name] = "mock_string"
+                                            elif param_info.get("type") == "number":
+                                                mock_args[param_name] = 42
+                                            elif param_info.get("type") == "boolean":
+                                                mock_args[param_name] = True
+                                            else:
+                                                mock_args[param_name] = "mock_value"
+
+                                # Create CompletionFunction with mock arguments
+                                function = CompletionFunction(
+                                    name=tool_data["function"]["name"],
+                                    arguments=json.dumps(mock_args)  # Convert mock args to JSON string
+                                )
+                                logger.debug(f"Created function with args: {function}")
+                                
+                                # Create CompletionToolCall
+                                tool_call = CompletionToolCall(
+                                    id=str(uuid.uuid4()),
+                                    type="function",
+                                    function=function
+                                )
+                                tool_calls.append(tool_call)
+                                logger.debug(f"Created tool call: {tool_call}")
+                    
+                    if tool_calls:
+                        finish_reason = "tool_calls"
+                        logger.debug(f"Final tool_calls list: {tool_calls}")
                 except Exception as e:
-                    raise MockAIError(
-                        f"Failed to create tool calls: {str(e)}"
-                    )
-            return {
-                "message": message,
-                "finish_reason": finish_reason,
-                "index": 0,
-                "logprobs": None,
-            }
+                    logger.error(f"Failed to create tool calls: {str(e)}")
+                    raise MockAIError(f"Failed to create tool calls: {str(e)}")
+
+            # Create CompletionMessage with all fields
+            message = CompletionMessage(
+                role="assistant",
+                content=f"Mock response to: {user_input}",
+                name=None,
+                function_call=None,
+                tool_calls=tool_calls,
+                tool_call_id=None,
+            )
+
+            logger.debug(f"Final message: {message}")
+
+            return Completion.Choice(
+                message=message,
+                finish_reason=finish_reason,
+                index=0,
+                logprobs=None,
+            )
         except Exception as e:
             raise MockAIError(
                 f"Failed to create mock response choice: {str(e)}"
