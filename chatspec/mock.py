@@ -17,14 +17,9 @@ from typing import (
     Literal,
     Optional,
     Union,
-    overload
+    overload,
 )
-from .types import (
-    Completion,
-    CompletionChunk,
-    Message,
-    Tool
-)
+from .types import Completion, CompletionChunk, Message, Tool
 from .params import (
     Params,
     ModelParam,
@@ -41,7 +36,7 @@ from .params import (
     ResponseFormatParam,
     PredictionParam,
 )
-from ._main import (
+from .utils import (
     logger,
     ChatSpecError,
     # methods
@@ -76,7 +71,7 @@ class MockAI:
     """
     A mocked implementation of the OpenAI client for chat completions.
     """
-    
+
     def __init__(
         self,
         base_url: Optional[BaseURLParam] = None,
@@ -86,7 +81,7 @@ class MockAI:
     ):
         """
         Initialize the MockAI client.
-        
+
         Args:
             base_url: The base URL of the API.
             api_key: The API key to use for the API.
@@ -97,7 +92,7 @@ class MockAI:
         self.api_key = api_key
         self.organization = organization
         self.timeout = timeout
-        
+
     @overload
     @classmethod
     def create(
@@ -108,9 +103,8 @@ class MockAI:
         stream: Literal[False] = False,
         tools: Optional[Iterable[Tool]] = None,
         **kwargs: Params,
-    ) -> Completion:
-        ...
-    
+    ) -> Completion: ...
+
     @overload
     @classmethod
     def create(
@@ -121,21 +115,22 @@ class MockAI:
         stream: Literal[True],
         tools: Optional[Iterable[Tool]] = None,
         **kwargs: Params,
-    ) -> Iterator[CompletionChunk]:
-        ...
-    
+    ) -> Iterator[CompletionChunk]: ...
+
     @classmethod
-    def create(cls, **kwargs: Any) -> Union[Completion, Iterator[CompletionChunk]]:
+    def create(
+        cls, **kwargs: Any
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
         """
         Mocks the OpenAI ChatCompletion.create method.
-        
+
         Accepts parameters similar to a real client, including:
           - messages: Iterable of Message objects (or as defined in Params)
           - model: the model to use (default "gpt-4o-mini")
           - stream: bool indicating if the response should be streamed
           - tools: optionally, a list (or dict) of tools to use
           - plus other parameters (from Params)
-        
+
         Returns either a standard Completion response or, if stream=True,
         an iterator over CompletionChunk objects.
         """
@@ -145,31 +140,39 @@ class MockAI:
             if not kwargs.get("messages"):
                 raise MockAIError("messages are required")
             try:
-                params["messages"] = normalize_messages(kwargs.get("messages"))
+                params["messages"] = normalize_messages(
+                    kwargs.get("messages")
+                )
             except Exception as e:
-                raise MockAIError(f"Failed to normalize messages: {str(e)}")
+                raise MockAIError(
+                    f"Failed to normalize messages: {str(e)}"
+                )
             params["model"] = kwargs.get("model", "gpt-4o-mini")
             params["stream"] = kwargs.get("stream", False)
-            
+
             # Process tools if provided
             tools_input = kwargs.get("tools")
             if tools_input:
                 try:
                     params["tools"] = convert_to_tools(tools_input)
-                    logger.debug(f"Mock completion tools: {params['tools']}")
+                    logger.debug(
+                        f"Mock completion tools: {params['tools']}"
+                    )
                 except Exception as e:
                     raise MockAIError(f"Failed to convert tools: {str(e)}")
-            
+
             # Process other parameters
             for key, value in kwargs.items():
                 if key not in params:
                     params[key] = value
-            
+
             if params["stream"]:
                 # Streaming mode: generate a mock Choice and return a stream
                 choice = cls._create_mock_response_choice(params)
                 logger.debug(f"Mock completion choice: {choice}")
-                return stream_passthrough(cls._stream_response(choice, params))
+                return stream_passthrough(
+                    cls._stream_response(choice, params)
+                )
             else:
                 # Non-streaming mode: generate a mock Completion
                 choice = cls._create_mock_response_choice(params)
@@ -187,9 +190,11 @@ class MockAI:
             raise
         except Exception as e:
             raise MockAIError(f"Unexpected error in create(): {str(e)}")
-    
+
     @classmethod
-    def _stream_response(cls, choice: Completion.Choice, params: Params) -> Iterator[CompletionChunk]:
+    def _stream_response(
+        cls, choice: Completion.Choice, params: Params
+    ) -> Iterator[CompletionChunk]:
         """
         Simulates streaming by splitting a Completion.Choice into multiple CompletionChunk objects.
         Yields each chunk sequentially with a small delay. If the original choice contains tool calls,
@@ -205,12 +210,17 @@ class MockAI:
                 chunk_text = " ".join(words[i : i + chunk_size])
                 chunk: CompletionChunk = {
                     "id": str(uuid.uuid4()),
-                    "choices": [{
-                        "delta": {"role": "assistant", "content": chunk_text},
-                        "finish_reason": None,
-                        "index": 0,
-                        "logprobs": None,
-                    }],
+                    "choices": [
+                        {
+                            "delta": {
+                                "role": "assistant",
+                                "content": chunk_text,
+                            },
+                            "finish_reason": None,
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
                     "created": created,
                     "model": params["model"],
                     "object": "chat.completion",
@@ -224,12 +234,18 @@ class MockAI:
             if tool_calls := choice.message.get("tool_calls"):
                 final_chunk: CompletionChunk = {
                     "id": str(uuid.uuid4()),
-                    "choices": [{
-                        "delta": {"role": "assistant", "content": "", "tool_calls": tool_calls},
-                        "finish_reason": "tool_calls",
-                        "index": 0,
-                        "logprobs": None,
-                    }],
+                    "choices": [
+                        {
+                            "delta": {
+                                "role": "assistant",
+                                "content": "",
+                                "tool_calls": tool_calls,
+                            },
+                            "finish_reason": "tool_calls",
+                            "index": 0,
+                            "logprobs": None,
+                        }
+                    ],
                     "created": created,
                     "model": params["model"],
                     "object": "chat.completion",
@@ -240,32 +256,43 @@ class MockAI:
                 yield final_chunk
         except Exception as e:
             raise MockAIError(f"Error in streaming response: {str(e)}")
-    
+
     @classmethod
-    def _create_mock_response_choice(cls, params: Params) -> Completion.Choice:
+    def _create_mock_response_choice(
+        cls, params: Params
+    ) -> Completion.Choice:
         """
         Creates a mock Completion.Choice object. If tools are provided, simulates a tool call.
         """
         try:
             messages = params.get("messages", [])
-            user_input = messages[-1].get("content", "") if messages else ""
+            user_input = (
+                messages[-1].get("content", "") if messages else ""
+            )
             message: Message = {
                 "role": "assistant",
-                "content": f"Mock response to: {user_input}"
+                "content": f"Mock response to: {user_input}",
             }
             finish_reason = "stop"
             if tools := params.get("tools"):
                 try:
                     tool_name = next(iter(tools.keys()))
-                    tool_calls = [{
-                        "id": str(uuid.uuid4()),
-                        "type": "function",
-                        "function": {"name": tool_name, "arguments": "{}"},
-                    }]
+                    tool_calls = [
+                        {
+                            "id": str(uuid.uuid4()),
+                            "type": "function",
+                            "function": {
+                                "name": tool_name,
+                                "arguments": "{}",
+                            },
+                        }
+                    ]
                     message["tool_calls"] = tool_calls
                     finish_reason = "tool_calls"
                 except Exception as e:
-                    raise MockAIError(f"Failed to create tool calls: {str(e)}")
+                    raise MockAIError(
+                        f"Failed to create tool calls: {str(e)}"
+                    )
             return {
                 "message": message,
                 "finish_reason": finish_reason,
@@ -273,8 +300,10 @@ class MockAI:
                 "logprobs": None,
             }
         except Exception as e:
-            raise MockAIError(f"Failed to create mock response choice: {str(e)}")
-    
+            raise MockAIError(
+                f"Failed to create mock response choice: {str(e)}"
+            )
+
     @overload
     @classmethod
     async def acreate(
@@ -285,9 +314,8 @@ class MockAI:
         stream: Literal[False] = False,
         tools: Optional[Iterable[Tool]] = None,
         **kwargs: Params,
-    ) -> Completion:
-        ...
-    
+    ) -> Completion: ...
+
     @overload
     @classmethod
     async def acreate(
@@ -298,18 +326,19 @@ class MockAI:
         stream: Literal[True],
         tools: Optional[Iterable[Tool]] = None,
         **kwargs: Params,
-    ) -> Iterator[CompletionChunk]:
-        ...
-    
+    ) -> Iterator[CompletionChunk]: ...
+
     @classmethod
-    async def acreate(cls, **kwargs: Any) -> Union[Completion, Iterator[CompletionChunk]]:
+    async def acreate(
+        cls, **kwargs: Any
+    ) -> Union[Completion, Iterator[CompletionChunk]]:
         """
         Asynchronous version of create.
         For simplicity, reuses the synchronous implementation.
         """
         return cls.create(**kwargs)
-    
-    
+
+
 # ----------------------------------------------------------------------------
 # Completion Methods
 # ----------------------------------------------------------------------------
@@ -348,8 +377,8 @@ def mock_completion(
     top_logprobs: Optional[int] = None,
     user: Optional[str] = None,
     **kwargs: Params,
-) -> Completion:
-    ...
+) -> Completion: ...
+
 
 @overload
 def mock_completion(
@@ -384,8 +413,8 @@ def mock_completion(
     top_logprobs: Optional[int] = None,
     user: Optional[str] = None,
     **kwargs: Params,
-) -> Iterator[CompletionChunk]:
-    ...
+) -> Iterator[CompletionChunk]: ...
+
 
 def mock_completion(
     messages: MessagesParam,

@@ -1,5 +1,5 @@
 """
-## 💭 chatspec.main
+## 💭 chatspec.utils
 
 Contains the utils and helpers within the chatspec library.
 These range from helpers for instance checking response/input types,
@@ -52,6 +52,8 @@ __all__ = [
     "create_field_mapping",
     "extract_function_fields",
     "convert_to_pydantic_model",
+    "convert_to_tools",
+    "convert_to_tool",
     "create_literal_pydantic_model",
     "stream_passthrough",
     "markdownify",
@@ -872,6 +874,54 @@ def convert_to_tool(
     except Exception as e:
         logger.debug(f"Error converting to tool: {e}")
         raise
+
+
+def convert_to_tools(
+    tools: Union[List[Any], Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Converts a list of tools (which may be BaseModel, callable, or Tool dict)
+    into a dictionary mapping tool names to tool definitions.
+    If a tool is not already in Tool format, it is converted via convert_to_tool.
+    If the original tool is callable, it is attached as the "callable" key.
+
+    Args:
+        tools: A list of tools (which may be BaseModel, callable, or Tool dict)
+
+    Returns:
+        A dictionary mapping tool names to tool definitions.
+    """
+    tools_dict: Dict[str, Any] = {}
+
+    if isinstance(tools, dict):
+        # Assume already keyed by tool name
+        return tools
+
+    if isinstance(tools, list):
+        for tool in tools:
+            if (
+                isinstance(tool, dict)
+                and tool.get("type") == "function"
+                and "function" in tool
+            ):
+                # Tool is already in correct format
+                name = tool["function"].get("name")
+                if name:
+                    tools_dict[name] = tool
+            else:
+                # Convert tool to proper format
+                converted = convert_to_tool(tool)
+                if (
+                    "function" in converted
+                    and "name" in converted["function"]
+                ):
+                    name = converted["function"]["name"]
+                    tools_dict[name] = converted
+                    # Attach original callable if applicable
+                    if callable(tool):
+                        tools_dict[name]["callable"] = tool
+
+    return tools_dict
 
 
 # ------------------------------------------------------------------------------

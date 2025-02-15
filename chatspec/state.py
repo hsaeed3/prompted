@@ -33,7 +33,7 @@ from .types import (
     Completion,
 )
 from .params import Params
-from ._main import (
+from .utils import (
     ChatSpecError,
     logger,
     # methods
