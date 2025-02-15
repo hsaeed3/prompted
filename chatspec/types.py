@@ -418,7 +418,49 @@ class Message(TypedDict):
 # ----------------------------------------------------------------------------
 
 
-class TopLogprob(BaseModel):
+# NOTE:
+# all response types are in pydantic to follow standard python api
+# schema
+# all models within 'chatspec' however, are subscriptable as they
+# inherit from this class.
+class Subscriptable(BaseModel):
+    """
+    A light wrapper over a Pydantic BaseModel, that allows for subscriptable
+    access to fields in a model.
+    """
+
+    def __getitem__(self, key: str) -> Any:
+        """
+        Get an item from the model.
+        """
+        return getattr(self, key)
+    
+    def __setitem__(self, key: str, value: Any) -> None:
+        """
+        Set an item in the model.
+        """
+        setattr(self, key, value)
+        
+    def __contains__(self, key: str) -> bool:
+        """
+        Check if a key exists in the model.
+        """
+        if key in self.model_fields_set:
+            return True
+        
+        if key in self.model_fields:
+            return self.model_fields[key].default is not None
+        
+        return False
+    
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Get an item from the model, with a default value if the key does not exist.
+        """
+        return self[key] if key in self else default
+    
+
+class TopLogprob(Subscriptable):
     """
     Represents the top log probabilities of a token.
     """
@@ -438,7 +480,7 @@ class TopLogprob(BaseModel):
 
 
 # logprobs are shared
-class TokenLogprob(BaseModel):
+class TokenLogprob(Subscriptable):
     """
     Represents the logprobs of a specific token type ('content' or 'refusal')
     """
@@ -461,7 +503,7 @@ class TokenLogprob(BaseModel):
     """
 
 
-class ChoiceLogprobs(BaseModel):
+class ChoiceLogprobs(Subscriptable):
     """
     Represents the logprobs of a choice.
     """
@@ -487,7 +529,7 @@ class ChoiceLogprobs(BaseModel):
 #      - streamed     : CompletionChunk.Choice
 
 
-class CompletionFunction(BaseModel):
+class CompletionFunction(Subscriptable):
     """
     A function to be called in a completion.
     """
@@ -502,7 +544,7 @@ class CompletionFunction(BaseModel):
     """
 
 
-class CompletionToolCall(BaseModel):
+class CompletionToolCall(Subscriptable):
     """
     A tool call in a completion.
     """
@@ -522,7 +564,7 @@ class CompletionToolCall(BaseModel):
     """
 
 
-class CompletionMessage(BaseModel):
+class CompletionMessage(Subscriptable):
     role: Literal["assistant"]
     """
     The role of the message author.
@@ -554,13 +596,13 @@ class CompletionMessage(BaseModel):
     """
 
 
-class Completion(BaseModel):
+class Completion(Subscriptable):
     """
     A pydantic model representing a chat completion
     response.
     """
 
-    class Choice(BaseModel):
+    class Choice(Subscriptable):
         """
         A completion choice.
         """
@@ -621,13 +663,13 @@ class Completion(BaseModel):
 # ----------------------------------------------------------------------------
 
 
-class CompletionChunk(BaseModel):
+class CompletionChunk(Subscriptable):
     """
     A pydantic model representing a chat completion
     response chunk.
     """
 
-    class Choice(BaseModel):
+    class Choice(Subscriptable):
         """
         A choice in a completion chunk.
         """
