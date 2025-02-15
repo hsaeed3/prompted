@@ -282,62 +282,105 @@ chatspec.convert_to_tool(my_tool)
 #### Interacting with `Tool Calls` in `Completions` & Executing `Tools`
 
 ```python
-{
-    'type': 'function',
-    'function': {
-        'name': 'my_better_web_tool',
-        'parameters': {
-            'type': 'object',
-            'properties': {'url': {'type': 'string', 'description': 'The URL of the website to get the title of.'}},
-            'required': ['url'],
-            'additionalProperties': False
-        },
-        'description': 'This is a tool that can be used to get the title of a website.\n'
-    }
-}
+import chatspec
+
+# easily check if a completion or stream has a tool call
+chatspec.has_tool_call()
+
+# get the tool calls from a completion or a stream
+chatspec.get_tool_calls(completion)
+
+# run a tool using a completion response
+# this will only run the function if the tool call was present in the completion
+chatspec.run_tool(completion, my_tool)
+
+# create a tool message from a completion response
+# and a function's output
+chatspec.create_tool_message(completion, my_tool_output)
 ```
-</details>
 
-</br>
+## ✨ Completion Responses & Streams
 
-## Manage message threads easily with `State`
+#### Instance Checking & Validation of `Completions` & `Streams`
 
 ```python
 import chatspec
 
-# create a message store (state)
-state = chatspec.State()
+# check if an object is a valid chat completion or stream
+chatspec.is_completion(completion)
 
-# we can add messages to the state normally
-state.add_messages(
-    [
-        {"role": "user", "content": "hello i am steve"},
-        {"role": "assistant", "content": "hello steve i am yu"},
-    ]
+# check if an object is a valid stream
+chatspec.is_stream(stream)
+```
+
+#### The `Stream Passthrough` & `Stream` Specific Methods
+
+`chatspec` provides an internal system for caching & storing stream responses from chat completions, for use & reuse for any of the methods
+within this library for streams. This is helpful, as the user is able to send/display the initial stream response to the client, while still
+being able to use it internally for any other use case.
+
+```python
+import chatspec
+# `openai` is not included in the package, so you'll need to install it separately
+from openai import OpenAI
+
+client = OpenAI()
+
+# run the stream through the passthrough
+stream = chatspec.stream_passthrough(client.chat.completions.create(
+    messages = [{"role": "user", "content": "Hello, how are you?"}],
+    model = "gpt-4o-mini",
+    stream = True,
+))
+
+# print the stream
+chatspec.is_stream(stream)
+# >>> True
+
+# run any number of other methods over the stream
+chatspec.dump_stream_to_message(stream)
+# >>> {"role": "assistant", "content": "Hello! I'm just a program, so I don't have feelings, but I'm here and ready to help you. How can I 
+# >>> assist you today?"}
+
+# chatspec.dump_stream_to_completion(stream)
+# chatspec.is_completion(stream)
+# chatspec.print_stream(stream)
+```
+
+## 🆉 Types & Parameters
+
+Use any of the provided types & models for schema reference, as well as quick parameter collection & validation with the `Params` model,
+as well as a few specific parameter types for quick use.
+
+```python
+from chatspec import Params
+# or get specific parameter types
+from chatspec.params import MessagesParam, StreamOptionsParam
+
+# easily define a collection of parameters for a chat completion
+params = Params(
+    messages = [{"role": "user", "content": "Hello, how are you?"}],
+    model = "gpt-4o-mini",
+    temperature = 0.5,
 )
 
-# or directly
-state.add_message("no i am me who are you?")
-# define a role too
-state.add_message("i just told you i that i am yu", role="assistant")
-# lets see our messages
-print(state.messages)
-# >>> [
-# >>>    {'content': 'hello i am steve', 'role': 'user'},
-# >>>    {'content': 'hello steve i am yu', 'role': 'assistant'},
-# >>>    {'content': 'no i am me who are you?', 'role': 'user'},
-# >>>    {'content': 'i just told you i that i am yu', 'role': 'assistant'}
-# >>> ]
+# use any of the provided types from `chatspec.types`
+from chatspec.types import Message, Tool, ToolCall, Completion
+# ...
 
-# we can have different states interact
-# states also have their own system context, with a special
-# 'identification_context' attribute
-state2 = chatspec.State()
-state2.identification_context['name'] = "yu"
-
-# we can send messages between states
-state.receive_message_from(state2, "i am me")
-# lets see what yu sent
-print(state.last_message)
-# >>> {'content': '[EXTERNAL from yu]: i am me', 'role': 'user'}
+# create objects directly from the types easily
+message = Message(role = "user", content = "Hello, how are you?")
+# >>> {"role": "user", "content": "Hello, how are you?"}
 ```
+
+## 🧠 State Manager (*For Chatbots & Agentic Applications*)
+
+> Documentation coming soon!
+
+## 𝌭 Pydantic Models & Structured Outputs
+
+> Documentation coming soon!
+
+## 📕 Markdown Formatting
+
+> Documentation coming soon!
