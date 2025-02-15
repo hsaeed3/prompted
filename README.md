@@ -2,7 +2,7 @@
 
 Simple types &amp; utilities built for the OpenAI Chat Completions API specification.
 
-[![](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 
 ## 📦 Installation
 
