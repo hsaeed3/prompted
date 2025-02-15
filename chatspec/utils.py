@@ -14,6 +14,7 @@ from cachetools import cached, TTLCache
 from dataclasses import is_dataclass, fields as dataclass_fields
 from inspect import signature, getdoc
 from pydantic import BaseModel, Field, create_model
+from pathlib import Path
 
 from typing import (
     Any,
@@ -29,7 +30,15 @@ from typing import (
     Set,
     get_type_hints,
 )
-from .types import Completion, CompletionChunk, Message, Tool
+from .types import (
+    Completion,
+    CompletionChunk,
+    Message,
+    MessageContentImagePart,
+    MessageContentAudioPart,
+    MessageContentTextPart,
+    Tool,
+)
 
 __all__ = [
     "is_completion",
@@ -41,6 +50,8 @@ __all__ = [
     "was_tool_called",
     "run_tool",
     "create_tool_message",
+    "create_image_message",
+    "create_input_audio_message",
     "get_tool_calls",
     "dump_stream_to_message",
     "dump_stream_to_completion",
@@ -1021,7 +1032,152 @@ def normalize_system_prompt(
     except Exception as e:
         logger.debug(f"Error normalizing system prompt: {e}")
         raise
+    
+    
+# these are for using the 'contentpart' types specifically
+# by setting content to type[list], you can define images & input audio.
+def create_image_message(
+    image: Union[str, Path, bytes],
+    detail: Literal["auto", "low", "high"] = "auto",
+    message: Optional[Union[str, Message]] = None,
+) -> Message:
+    """
+    Creates a message with image content from a url, path, or bytes.
+    
+    This method is also useful for 'injecting' an image into an existing
+    message's content.
 
+    Args:
+        image: The image to include - can be a URL string, Path object, or raw bytes
+        detail: The detail level for the image - one of "auto", "low", or "high"
+        message: Optional existing message to add the image content to
+
+    Returns:
+        A Message object with the image content part included
+    """
+    import base64
+    from urllib.parse import urlparse
+
+    # Convert image to base64 if needed
+    if isinstance(image, Path):
+        with open(image, 'rb') as f:
+            image_bytes = f.read()
+            image = f"data:image/png;base64,{base64.b64encode(image_bytes).decode()}"
+    elif isinstance(image, bytes):
+        image = f"data:image/png;base64,{base64.b64encode(image).decode()}"
+    elif isinstance(image, str) and not urlparse(image).scheme:
+        # Handle string path
+        with open(image, 'rb') as f:
+            image_bytes = f.read()
+            image = f"data:image/png;base64,{base64.b64encode(image_bytes).decode()}"
+    
+    image_part: MessageContentImagePart = {
+        "type": "image_url",
+        "image_url": {
+            "url": image,
+            "detail": detail
+        }
+    }
+
+    if message is None:
+        return {
+            "role": "user",
+            "content": [image_part]
+        }
+    
+    if isinstance(message, str):
+        text_part: MessageContentTextPart = {
+            "type": "text",
+            "text": message
+        }
+        return {
+            "role": "user", 
+            "content": [text_part, image_part]
+        }
+
+    # Handle existing Message dict
+    if not message.get("content"):
+        message["content"] = [image_part]
+    elif isinstance(message["content"], str):
+        message["content"] = [
+            {"type": "text", "text": message["content"]},
+            image_part
+        ]
+    elif isinstance(message["content"], (list, tuple)):
+        message["content"] = list(message["content"]) + [image_part]
+    
+    return message
+
+
+def create_input_audio_message(
+    audio: Union[str, Path, bytes],
+    format: Literal["wav", "mp3"] = "wav",
+    message: Optional[Union[str, Message]] = None,
+) -> Message:
+    """
+    Creates a message with input audio content from a url, path, or bytes.
+
+    Args:
+        audio: The audio to include - can be a URL string, Path object, or raw bytes
+        format: The audio format - either "wav" or "mp3"
+        message: Optional existing message to add the audio content to
+
+    Returns:
+        A Message object with the audio content part included
+    """
+    import base64
+    from urllib.parse import urlparse
+
+    # Convert audio to base64 if needed
+    if isinstance(audio, Path):
+        with open(audio, 'rb') as f:
+            audio_bytes = f.read()
+            audio = base64.b64encode(audio_bytes).decode()
+    elif isinstance(audio, bytes):
+        audio = base64.b64encode(audio).decode()
+    elif isinstance(audio, str) and not urlparse(audio).scheme:
+        # Handle string path
+        with open(audio, 'rb') as f:
+            audio_bytes = f.read()
+            audio = base64.b64encode(audio_bytes).decode()
+
+    audio_part: MessageContentAudioPart = {
+        "type": "input_audio",
+        "input_audio": {
+            "data": audio,
+            "format": format
+        }
+    }
+
+    if message is None:
+        return {
+            "role": "user",
+            "content": [audio_part]
+        }
+
+    if isinstance(message, str):
+        text_part: MessageContentTextPart = {
+            "type": "text",
+            "text": message
+        }
+        return {
+            "role": "user",
+            "content": [text_part, audio_part]
+        }
+
+    # Handle existing Message dict
+    if not message.get("content"):
+        message["content"] = [audio_part]
+    elif isinstance(message["content"], str):
+        message["content"] = [
+            {"type": "text", "text": message["content"]},
+            audio_part
+        ]
+    elif isinstance(message["content"], (list, tuple)):
+        message["content"] = list(message["content"]) + [audio_part]
+
+    return message
+    
 
 # ------------------------------------------------------------------------------
 # pydantic models
