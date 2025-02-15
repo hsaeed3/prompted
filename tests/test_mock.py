@@ -6,7 +6,6 @@ Contains tests for the MockAI class and mock_completion function.
 
 import pytest
 from chatspec.mock import MockAI, mock_completion, MockAIError
-from typing import Dict, List, Iterator
 from chatspec.utils import _StreamPassthrough
 
 
