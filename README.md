@@ -1,6 +1,6 @@
 # 💭 chatspec
 
-Simple types &amp; utilities built for the OpenAI Chat Completions API specification.
+Tiny types & utilities built for the OpenAI Chat Completions API specification.
 
 [![](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
