@@ -7,10 +7,10 @@ as well as message formatting / tool conversion, etc.
 """
 
 import logging
-import docstring_parser
 import hashlib
 import json
-from cachetools import cached, TTLCache
+from cachetools import TTLCache
+from functools import wraps
 from dataclasses import is_dataclass
 from inspect import signature
 from pydantic import BaseModel, Field, create_model
@@ -26,6 +26,7 @@ from typing import (
     Dict,
     Callable,
     Type,
+    TypeVar,
     Sequence,
     get_type_hints,
     Iterator,
@@ -79,16 +80,7 @@ __all__ = [
 logger = logging.getLogger("chatspec")
 #
 # cache
-_chatspec_cache = None
-#
-def _get_chatspec_cache() -> TTLCache:
-    """
-    Helper function to create / get chatspec cache.
-    """
-    global _chatspec_cache
-    if _chatspec_cache is None:
-        _chatspec_cache = TTLCache(maxsize=1000, ttl=3600)
-    return _chatspec_cache
+_CACHE = TTLCache(maxsize=1000, ttl=3600)
 #
 # exception
 class ChatSpecError(Exception):
@@ -103,6 +95,9 @@ class ChatSpecError(Exception):
 # ------------------------------------------------------------------------------
 # Helper Methods
 # ------------------------------------------------------------------------------
+
+
+T = TypeVar("T")
 
 
 def _get_value(obj: Any, key: str, default: Any = None) -> Any:
@@ -181,6 +176,23 @@ _TYPE_MAPPING = {
     set: ("array", set),
     Any: ("any", Any),
 }
+
+
+def _cached(key_fn: Callable[..., str]) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    """More efficient caching decorator that only creates cache entries when needed."""
+    def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> T:
+            try:
+                cache_key = key_fn(*args, **kwargs)
+                if cache_key not in _CACHE:
+                    _CACHE[cache_key] = func(*args, **kwargs)
+                return _CACHE[cache_key]
+            except Exception:
+                # On any error, fall back to uncached function call
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
 
 
 # ------------------------------------------------------------------------------
@@ -329,11 +341,8 @@ def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
 # ------------------------------------------------------------------------------
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda completion: _make_hashable(completion)
-    if completion
-    else "",
+@_cached(
+    lambda completion: _make_hashable(completion) if completion else ""
 )
 def is_completion(completion: Any) -> bool:
     """
@@ -363,12 +372,6 @@ def is_completion(completion: Any) -> bool:
         return False
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda completion: _make_hashable(completion)
-    if completion
-    else "",
-)
 def is_stream(completion: Any) -> bool:
     """
     Checks if the given object is a valid stream of 'chat completion'
@@ -399,9 +402,8 @@ def is_stream(completion: Any) -> bool:
         return False
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda message: _make_hashable(message) if message else "",
+@_cached(
+    lambda message: _make_hashable(message) if message else ""
 )
 def is_message(message: Any) -> bool:
     """Checks if a given object is a valid chat message."""
@@ -433,9 +435,8 @@ def is_message(message: Any) -> bool:
         return False
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda tool: _make_hashable(tool) if tool else "",
+@_cached(
+    lambda tool: _make_hashable(tool) if tool else ""
 )
 def is_tool(tool: Any) -> bool:
     """
@@ -460,9 +461,8 @@ def is_tool(tool: Any) -> bool:
         return False
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda messages: _make_hashable(messages) if messages else "",
+@_cached(
+    lambda messages: _make_hashable(messages) if messages else ""
 )
 def has_system_prompt(messages: List[Message]) -> bool:
     """
@@ -492,11 +492,8 @@ def has_system_prompt(messages: List[Message]) -> bool:
         raise
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda completion: _make_hashable(completion)
-    if completion
-    else "",
+@_cached(
+    lambda completion: _make_hashable(completion) if completion else ""
 )
 def has_tool_call(completion: Any) -> bool:
     """
@@ -784,13 +781,10 @@ def get_tool_calls(completion: Any) -> List[Dict[str, Any]]:
         return []
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda completion, tool: _make_hashable(
+@_cached(
+    lambda completion, tool: _make_hashable(
         (completion, tool.__name__ if callable(tool) else tool)
-    )
-    if completion
-    else "",
+    ) if completion else ""
 )
 def was_tool_called(
     completion: Any, tool: Union[str, Callable, Dict[str, Any]]
@@ -888,9 +882,8 @@ def create_tool_message(completion: Any, output: Any) -> Message:
         raise
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda tool: _make_hashable(tool) if tool else "",
+@_cached(
+    lambda tool: _make_hashable(tool) if tool else ""
 )
 def convert_to_tool(
     tool: Union[BaseModel, Callable, Dict[str, Any]],
@@ -912,6 +905,7 @@ def convert_to_tool(
     Raises:
         TypeError: If the input cannot be converted to a tool.
     """
+    import docstring_parser
     try:
         if (
             isinstance(tool, dict)
@@ -1051,9 +1045,8 @@ def convert_to_tools(
 # ------------------------------------------------------------------------------
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda messages: _make_hashable(messages) if messages else "",
+@_cached(
+    lambda messages: _make_hashable(messages) if messages else ""
 )
 def normalize_messages(messages: Any) -> List[Message]:
     """Formats the input into a list of chat completion messages."""
@@ -1078,11 +1071,10 @@ def normalize_messages(messages: Any) -> List[Message]:
         raise
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda messages, system_prompt=None, blank=False: _make_hashable(
+@_cached(
+    lambda messages, system_prompt=None, blank=False: _make_hashable(
         (messages, system_prompt, blank)
-    ),
+    )
 )
 def normalize_system_prompt(
     messages: List[Message],
@@ -1280,12 +1272,10 @@ def create_input_audio_message(
 # ------------------------------------------------------------------------------
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda type_hint,
-    index=None,
-    description=None,
-    default=...: _make_hashable((type_hint, index, description, default)),
+@_cached(
+    lambda type_hint, index=None, description=None, default=...: _make_hashable(
+        (type_hint, index, description, default)
+    )
 )
 def create_field_mapping(
     type_hint: Type,
@@ -1321,9 +1311,8 @@ def create_field_mapping(
         raise
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda func: _make_hashable(func),
+@_cached(
+    lambda func: _make_hashable(func)
 )
 def extract_function_fields(func: Callable) -> Dict[str, Any]:
     """
@@ -1372,15 +1361,10 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 # ----------------------------------------------------------------------
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda target,
-    init=False,
-    name=None,
-    description=None,
-    default=...: _make_hashable(
+@_cached(
+    lambda target, init=False, name=None, description=None, default=...: _make_hashable(
         (target, init, name, description, default)
-    ),
+    )
 )
 def convert_to_pydantic_model(
     target: Union[
@@ -1495,11 +1479,8 @@ def convert_to_pydantic_model(
 
 
 # this one is kinda super specific
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda target, name=None: _make_hashable((target, name))
-    if target
-    else "",
+@_cached(
+    lambda target, name=None: _make_hashable((target, name)) if target else ""
 )
 def create_literal_pydantic_model(
     target: Union[Type, List[str]],
