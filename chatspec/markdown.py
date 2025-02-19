@@ -16,11 +16,11 @@ from pydantic import BaseModel
 from typing import Any, Generic, Optional, TypeVar
 from typing_extensions import TypedDict
 
-from .utils import _make_hashable, logger, _chatspec_cache
+from .utils import _make_hashable, logger, _get_chatspec_cache
 
 __all__ = [
     "MarkdownObject",
-    "MarkdownParams",
+    "MarkdownConfig",
     "markdownify",
 ]
 
@@ -37,7 +37,7 @@ instance.
 """
 
 
-class MarkdownParams(TypedDict):
+class MarkdownConfig(TypedDict, total=False):
     markdown: bool
     """
     If `True`, the value will be rendered as markdown.
@@ -95,7 +95,7 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
     A container for easily managing & rendering markdown representations of
     various objects, while retaining their original values & functionality.
     """
-    config: Optional[MarkdownParams] = None
+    config: Optional[MarkdownConfig] = None
     """
     The configuration for markdown rendering.
     """
@@ -121,7 +121,7 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
         bullet_style: str = "-",
         language: Optional[str] = None,
         show_header: bool = True,
-        config: Optional[MarkdownParams] = None
+        config: Optional[MarkdownConfig] = None
     ) -> None:
         """
         Initializes the MarkdownObject with a given value and optional configuration.
@@ -155,7 +155,7 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
         bullet_style: Optional[str] = None,
         language: Optional[str] = None,
         show_header: Optional[bool] = None,
-        config: Optional[MarkdownParams] = None
+        config: Optional[MarkdownConfig] = None
     ) -> None:
         """
         Updates the markdown representation using the `markdownify` function.
@@ -276,7 +276,7 @@ def _format_docstring(
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda cls: _make_hashable(cls),
 )
 def get_type_name(cls: Any) -> str:
@@ -350,7 +350,7 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda target,
     indent=0,
     code_block=False,
