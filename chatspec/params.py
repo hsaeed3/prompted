@@ -14,8 +14,27 @@ from typing import (
     Union,
 )
 from typing_extensions import TypeAlias, TypedDict, Required
-
 from .types import Message, Tool, Function
+
+__all__ = [
+    "MessagesParam",
+    "ChatModel",
+    "ModelParam",
+    "BaseURLParam",
+    "FunctionCallParam",
+    "ToolChoiceParam",
+    "ModalitiesParam",
+    "PredictionParam",
+    "AudioParam",
+    "ReasoningEffortParam",
+    "ResponseFormatParam",
+    "StreamOptionsParam",
+    "ClientParams",
+    "CompletionParams",
+    "Params",
+    "to_client_params",
+    "to_completion_params",
+]
 
 
 # ----------------------------------------------------------------------------
@@ -258,11 +277,24 @@ class StreamOptionsParam(TypedDict):
 # ----------------------------------------------------------------------------
 
 
-class Params(TypedDict):
+class ClientParams(TypedDict):
     """
-    A dictionary representing the parameters for a chat completion.
+    A dictionary representing parameters used to initialize a chat completion
+    client ('OpenAI')
+    """
+    
+    base_url: BaseURLParam
+    api_key: str
+    organization: str
+    timeout: float
+    max_retries: int
 
-    (This is a convenience object)
+
+class CompletionParams(TypedDict):
+    """
+    A dictionary representing parameters used when creating a chat completion.
+    
+    `openai.chat.completions.create()`
     """
 
     messages: MessagesParam
@@ -294,3 +326,36 @@ class Params(TypedDict):
     tool_choice: Optional[ToolChoiceParam]
     top_logprobs: Optional[int]
     user: Optional[str]
+
+
+class Params(ClientParams, CompletionParams):
+    """
+    A dictionary representing unified parameters for a chat completion.
+    
+    `litellm.completion()`
+    """
+
+    pass
+
+
+# ----------------------------------------------------------------------------
+# Helpers
+# ----------------------------------------------------------------------------
+
+
+def to_client_params(params: Params) -> ClientParams:
+    """
+    Convert a `Params` object to a `ClientParams` object.
+    """
+    valid_keys = ClientParams.__annotations__.keys()
+    filtered_params = {k: v for k, v in params.items() if k in valid_keys}
+    return ClientParams(**filtered_params)
+
+
+def to_completion_params(params: Params) -> CompletionParams:
+    """
+    Convert a `Params` object to a `CompletionParams` object.
+    """
+    valid_keys = CompletionParams.__annotations__.keys()
+    filtered_params = {k: v for k, v in params.items() if k in valid_keys}
+    return CompletionParams(**filtered_params)
