@@ -10,13 +10,12 @@ as well as their markdown or code block representations.
 import json
 from cachetools import cached
 from dataclasses import is_dataclass, fields as dataclass_fields
-import docstring_parser
 from inspect import getdoc
 from pydantic import BaseModel
 from typing import Any, Generic, Optional, TypeVar
 from typing_extensions import TypedDict
 
-from .utils import _make_hashable, logger, _get_chatspec_cache
+from .utils import _make_hashable, logger, _cached
 
 __all__ = [
     "MarkdownObject",
@@ -206,6 +205,7 @@ def _get_field_description(field_info: Any) -> Optional[str]:
     Returns:
         The field description if available, None otherwise
     """
+    import docstring_parser
     try:
         if hasattr(field_info, "__doc__") and field_info.__doc__:
             doc = docstring_parser.parse(field_info.__doc__)
@@ -233,6 +233,7 @@ def _format_docstring(
     Returns:
         Formatted markdown string
     """
+    import docstring_parser
     try:
         if not doc_dict:
             return ""
@@ -275,9 +276,8 @@ def _format_docstring(
         return str(doc_dict)
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda cls: _make_hashable(cls),
+@_cached(
+    lambda cls: _make_hashable(cls) if cls else ""
 )
 def get_type_name(cls: Any) -> str:
     """Get a clean type name for display"""
@@ -318,6 +318,7 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
         - returns: Return value description
         - raises: List of exceptions
     """
+    import docstring_parser
     doc = getdoc(obj)
     if not doc:
         return None
@@ -349,20 +350,8 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 # -----------------------------------------------------------------------------
 
 
-@cached(
-    cache=_get_chatspec_cache(),
-    key=lambda target,
-    indent=0,
-    code_block=False,
-    compact=False,
-    show_types=True,
-    show_title=True,
-    show_bullets=True,
-    show_docs=True,
-    bullet_style="-",
-    language=None,
-    show_header=True,
-    _visited=None: _make_hashable(
+@_cached(
+    lambda target, indent=0, code_block=False, compact=False, show_types=True, show_title=True, show_bullets=True, show_docs=True, bullet_style="-", language=None, show_header=True, _visited=None: _make_hashable(
         (
             target,
             indent,
@@ -375,9 +364,10 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
             bullet_style,
             language,
             show_header,
+            _visited
         )
-    ),
-)
+    )
+)  
 def markdownify(
     target: Any,
     indent: int = 0,
