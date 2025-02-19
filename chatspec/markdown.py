@@ -87,13 +87,14 @@ class MarkdownConfig(TypedDict, total=False):
     """
     The language to use for code block formatting.
     """
-    
-    
+
+
 class MarkdownObject(Generic[_MarkdownObjectT]):
     """
     A container for easily managing & rendering markdown representations of
     various objects, while retaining their original values & functionality.
     """
+
     config: Optional[MarkdownConfig] = None
     """
     The configuration for markdown rendering.
@@ -106,7 +107,7 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
     """
     The markdown representation of the object.
     """
-    
+
     def __init__(
         self,
         value: _MarkdownObjectT,
@@ -120,7 +121,7 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
         bullet_style: str = "-",
         language: Optional[str] = None,
         show_header: bool = True,
-        config: Optional[MarkdownConfig] = None
+        config: Optional[MarkdownConfig] = None,
     ) -> None:
         """
         Initializes the MarkdownObject with a given value and optional configuration.
@@ -154,7 +155,7 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
         bullet_style: Optional[str] = None,
         language: Optional[str] = None,
         show_header: Optional[bool] = None,
-        config: Optional[MarkdownConfig] = None
+        config: Optional[MarkdownConfig] = None,
     ) -> None:
         """
         Updates the markdown representation using the `markdownify` function.
@@ -163,16 +164,36 @@ class MarkdownObject(Generic[_MarkdownObjectT]):
         config = config or self.config
         self.markdown = markdownify(
             self.value,
-            indent=indent if indent is not None else config.get("indent", 0),
-            code_block=code_block if code_block is not None else config.get("code_block", False),
-            compact=compact if compact is not None else config.get("compact", False),
-            show_types=show_types if show_types is not None else config.get("show_types", True),
-            show_title=show_title if show_title is not None else config.get("show_title", True),
-            show_bullets=show_bullets if show_bullets is not None else config.get("show_bullets", True),
-            show_docs=show_docs if show_docs is not None else config.get("show_docs", True),
-            bullet_style=bullet_style if bullet_style is not None else config.get("bullet_style", "-"),
-            language=language if language is not None else config.get("language", None),
-            show_header=show_header if show_header is not None else config.get("show_header", True),
+            indent=indent
+            if indent is not None
+            else config.get("indent", 0),
+            code_block=code_block
+            if code_block is not None
+            else config.get("code_block", False),
+            compact=compact
+            if compact is not None
+            else config.get("compact", False),
+            show_types=show_types
+            if show_types is not None
+            else config.get("show_types", True),
+            show_title=show_title
+            if show_title is not None
+            else config.get("show_title", True),
+            show_bullets=show_bullets
+            if show_bullets is not None
+            else config.get("show_bullets", True),
+            show_docs=show_docs
+            if show_docs is not None
+            else config.get("show_docs", True),
+            bullet_style=bullet_style
+            if bullet_style is not None
+            else config.get("bullet_style", "-"),
+            language=language
+            if language is not None
+            else config.get("language", None),
+            show_header=show_header
+            if show_header is not None
+            else config.get("show_header", True),
         )
 
     def __str__(self) -> str:
@@ -206,6 +227,7 @@ def _get_field_description(field_info: Any) -> Optional[str]:
         The field description if available, None otherwise
     """
     import docstring_parser
+
     try:
         if hasattr(field_info, "__doc__") and field_info.__doc__:
             doc = docstring_parser.parse(field_info.__doc__)
@@ -234,6 +256,7 @@ def _format_docstring(
         Formatted markdown string
     """
     import docstring_parser
+
     try:
         if not doc_dict:
             return ""
@@ -276,9 +299,7 @@ def _format_docstring(
         return str(doc_dict)
 
 
-@_cached(
-    lambda cls: _make_hashable(cls) if cls else ""
-)
+@_cached(lambda cls: _make_hashable(cls) if cls else "")
 def get_type_name(cls: Any) -> str:
     """Get a clean type name for display"""
     # Handle None type
@@ -319,6 +340,7 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
         - raises: List of exceptions
     """
     import docstring_parser
+
     doc = getdoc(obj)
     if not doc:
         return None
@@ -351,7 +373,18 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 
 
 @_cached(
-    lambda target, indent=0, code_block=False, compact=False, show_types=True, show_title=True, show_bullets=True, show_docs=True, bullet_style="-", language=None, show_header=True, _visited=None: _make_hashable(
+    lambda target,
+    indent=0,
+    code_block=False,
+    compact=False,
+    show_types=True,
+    show_title=True,
+    show_bullets=True,
+    show_docs=True,
+    bullet_style="-",
+    language=None,
+    show_header=True,
+    _visited=None: _make_hashable(
         (
             target,
             indent,
@@ -364,10 +397,10 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
             bullet_style,
             language,
             show_header,
-            _visited
+            _visited,
         )
     )
-)  
+)
 def markdownify(
     target: Any,
     indent: int = 0,
@@ -387,7 +420,7 @@ def markdownify(
 
     This function takes a target object and converts it into a markdown string
     that is optimized for use in language model prompts. It supports various
-    options to customize the output, including indentation, code blocks, 
+    options to customize the output, including indentation, code blocks,
     compact formatting, type annotations, and more.
 
     Args:
@@ -539,15 +572,18 @@ def markdownify(
                 json_str = (
                     json.dumps(data, indent=2)
                     if not is_class
-                    else "{\n" + "\n".join(
-                        f'  "{k}": "{v}"' 
-                        for k, v in data.items()
-                    ) + "\n}"
+                    else "{\n"
+                    + "\n".join(f'  "{k}": "{v}"' for k, v in data.items())
+                    + "\n}"
                 )
                 lang_tag = f"{language or ''}"
                 return f"```{lang_tag}\n{json_str}\n```"
 
-            header_parts = [f"{prefix}{bullet}**{model_name}**:"] if show_title else []
+            header_parts = (
+                [f"{prefix}{bullet}**{model_name}**:"]
+                if show_title
+                else []
+            )
             if show_docs and show_header:
                 try:
                     doc_dict = _parse_docstring(target)
@@ -579,20 +615,37 @@ def markdownify(
                 else:
                     field_parts = [
                         f"{field_prefix}{bullet}{key}"
-                        + (f": {get_type_name(field_info.annotation)}" if show_types else "")
+                        + (
+                            f": {get_type_name(field_info.annotation)}"
+                            if show_types
+                            else ""
+                        )
                     ]
                     field_lines.extend(field_parts)
 
             if compact and field_lines:
-                return f"{header} {', '.join(field_lines)}" if show_title else ', '.join(field_lines)
+                return (
+                    f"{header} {', '.join(field_lines)}"
+                    if show_title
+                    else ", ".join(field_lines)
+                )
             else:
                 if show_bullets:
                     if show_title:
-                        return "\n".join(filter(None, [header] + field_lines))
+                        return "\n".join(
+                            filter(None, [header] + field_lines)
+                        )
                     else:
                         # When show_title is False, don't indent the field lines
-                        field_lines = [f"{prefix}{bullet}{key}" + (f": {get_type_name(field_info.annotation)}" if show_types else "")
-                                     for key, field_info in fields]
+                        field_lines = [
+                            f"{prefix}{bullet}{key}"
+                            + (
+                                f": {get_type_name(field_info.annotation)}"
+                                if show_types
+                                else ""
+                            )
+                            for key, field_info in fields
+                        ]
                         return "\n".join(field_lines)
                 else:
                     # Remove indentation when show_bullets is False
@@ -616,9 +669,7 @@ def markdownify(
             )
 
         if code_block and isinstance(target[0], (dict, BaseModel)):
-            json_str = json.dumps(
-                list(target), indent=2
-            )
+            json_str = json.dumps(list(target), indent=2)
             return f"```{language or 'json'}\n{json_str}\n```"
 
         type_name = target.__class__.__name__ if show_types else ""
@@ -646,9 +697,7 @@ def markdownify(
             return "{}"
 
         if code_block:
-            json_str = json.dumps(
-                target, indent=2
-            )
+            json_str = json.dumps(target, indent=2)
             return f"```{language or 'json'}\n{json_str}\n```"
 
         type_name = target.__class__.__name__ if show_types else ""
@@ -696,5 +745,3 @@ def markdownify(
         )
 
     return str(target)
-
-
