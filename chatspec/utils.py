@@ -9,7 +9,7 @@ as well as message formatting / tool conversion, etc.
 import logging
 import docstring_parser
 import hashlib
-import msgspec
+import json
 from cachetools import cached, TTLCache
 from dataclasses import is_dataclass
 from inspect import signature
@@ -79,9 +79,16 @@ __all__ = [
 logger = logging.getLogger("chatspec")
 #
 # cache
-_chatspec_cache = TTLCache(maxsize=1000, ttl=3600)
-
-
+_chatspec_cache = None
+#
+def _get_chatspec_cache() -> TTLCache:
+    """
+    Helper function to create / get chatspec cache.
+    """
+    global _chatspec_cache
+    if _chatspec_cache is None:
+        _chatspec_cache = TTLCache(maxsize=1000, ttl=3600)
+    return _chatspec_cache
 #
 # exception
 class ChatSpecError(Exception):
@@ -90,8 +97,6 @@ class ChatSpecError(Exception):
     """
 
     pass
-
-
 # ------------------------------------------------------------------------------
 
 
@@ -325,7 +330,7 @@ def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda completion: _make_hashable(completion)
     if completion
     else "",
@@ -359,7 +364,7 @@ def is_completion(completion: Any) -> bool:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda completion: _make_hashable(completion)
     if completion
     else "",
@@ -395,7 +400,7 @@ def is_stream(completion: Any) -> bool:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda message: _make_hashable(message) if message else "",
 )
 def is_message(message: Any) -> bool:
@@ -429,7 +434,7 @@ def is_message(message: Any) -> bool:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda tool: _make_hashable(tool) if tool else "",
 )
 def is_tool(tool: Any) -> bool:
@@ -456,7 +461,7 @@ def is_tool(tool: Any) -> bool:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda messages: _make_hashable(messages) if messages else "",
 )
 def has_system_prompt(messages: List[Message]) -> bool:
@@ -488,7 +493,7 @@ def has_system_prompt(messages: List[Message]) -> bool:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda completion: _make_hashable(completion)
     if completion
     else "",
@@ -673,7 +678,7 @@ def parse_model_from_completion(
             raise ValueError("No content found in the completion message.")
 
         try:
-            data = msgspec.json.decode(content)
+            data = json.loads(content)
         except Exception as e:
             raise ValueError(f"Error parsing JSON content: {e}")
 
@@ -700,7 +705,7 @@ def parse_model_from_stream(
             )
 
         try:
-            data = msgspec.json.decode(content)
+            data = json.loads(content)
         except Exception as e:
             raise ValueError(
                 f"Error parsing JSON content from stream: {e}"
@@ -780,7 +785,7 @@ def get_tool_calls(completion: Any) -> List[Dict[str, Any]]:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda completion, tool: _make_hashable(
         (completion, tool.__name__ if callable(tool) else tool)
     )
@@ -836,14 +841,14 @@ def run_tool(completion: Any, tool: callable) -> Any:
 
         try:
             args_str = matching_call["function"]["arguments"]
-            args = msgspec.json.decode(args_str)
+            args = json.loads(args_str)
             if isinstance(args, dict):
                 return tool(**args)
             else:
                 raise ValueError(
                     f"Invalid arguments format for tool '{tool_name}'"
                 )
-        except msgspec.DecodeError:
+        except json.JSONDecodeError:
             raise ValueError(
                 f"Invalid JSON in arguments for tool '{tool_name}'"
             )
@@ -884,7 +889,7 @@ def create_tool_message(completion: Any, output: Any) -> Message:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda tool: _make_hashable(tool) if tool else "",
 )
 def convert_to_tool(
@@ -1047,7 +1052,7 @@ def convert_to_tools(
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda messages: _make_hashable(messages) if messages else "",
 )
 def normalize_messages(messages: Any) -> List[Message]:
@@ -1074,7 +1079,7 @@ def normalize_messages(messages: Any) -> List[Message]:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda messages, system_prompt=None, blank=False: _make_hashable(
         (messages, system_prompt, blank)
     ),
@@ -1276,7 +1281,7 @@ def create_input_audio_message(
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda type_hint,
     index=None,
     description=None,
@@ -1317,7 +1322,7 @@ def create_field_mapping(
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda func: _make_hashable(func),
 )
 def extract_function_fields(func: Callable) -> Dict[str, Any]:
@@ -1368,7 +1373,7 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 
 
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda target,
     init=False,
     name=None,
@@ -1491,7 +1496,7 @@ def convert_to_pydantic_model(
 
 # this one is kinda super specific
 @cached(
-    cache=_chatspec_cache,
+    cache=_get_chatspec_cache(),
     key=lambda target, name=None: _make_hashable((target, name))
     if target
     else "",
