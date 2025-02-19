@@ -56,7 +56,6 @@ from .utils import (
 )
 
 __all__ = [
-    "MockAI",
     "mock_completion",
 ]
 
