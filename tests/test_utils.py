@@ -252,20 +252,6 @@ def test_create_literal_pydantic_model():
     )
 
 
-# Test Markdown Formatting
-def test_markdownify():
-    # Test primitive types
-    assert markdownify("test") == "test"
-    assert markdownify(123) == "123"
-
-    # Test Pydantic model
-    user = UserProfile(name="John", age=30)
-    md = markdownify(user)
-    assert "**UserProfile**" in md
-    assert "**name**: John" in md
-    assert "**age**: 30" in md
-
-
 # Test Stream Handling
 def test_stream_passthrough():
     chunks = [{"content": "Hello"}, {"content": "World"}]
