@@ -921,26 +921,40 @@ def convert_to_tool(
     Raises:
         TypeError: If the input cannot be converted to a tool.
     """
-    import docstring_parser
+    from typing_inspect import is_literal_type
+    from pydantic import BaseModel
+    from typing import get_args
 
     try:
-        if (
-            isinstance(tool, dict)
-            and "type" in tool
-            and "function" in tool
-        ):
+        if isinstance(tool, dict) and "type" in tool and "function" in tool:
             return tool
 
         if isinstance(tool, type) and issubclass(tool, BaseModel):
             schema = tool.model_json_schema()
             if "properties" in schema:
+                for prop_name, prop_schema in schema["properties"].items():
+                    if "enum" in prop_schema:
+                        # Handle enum fields as literals
+                        prop_schema["enum"] = list(prop_schema["enum"])
+                        prop_schema["title"] = prop_name.capitalize()
+                        prop_schema["type"] = "string"
+                    elif is_literal_type(prop_schema.get("type")):
+                        prop_schema["enum"] = list(get_args(prop_schema["type"]))
+                        prop_schema["title"] = prop_name.capitalize()
+                        prop_schema["type"] = "string"
+                    else:
+                        prop_schema["title"] = prop_name.capitalize()
                 schema["required"] = list(schema["properties"].keys())
                 schema["additionalProperties"] = False
-            function_def = {"name": tool.__name__, "parameters": schema}
-            if tool.__doc__:
-                docstring = docstring_parser.parse(tool.__doc__)
-                function_def["description"] = docstring.description
-            return {"type": "function", "function": function_def}
+                schema["title"] = tool.__name__
+            return {
+                "type": "function",
+                "function": {
+                    "name": tool.__name__,
+                    "parameters": schema,
+                    "strict": True
+                }
+            }
 
         if callable(tool):
             import inspect
@@ -949,35 +963,28 @@ def convert_to_tool(
             properties = {}
             required = []
 
-            # Parse docstring if available
-            param_descriptions = {}
-            if tool.__doc__:
-                docstring = docstring_parser.parse(tool.__doc__)
-                description = docstring.description
-                for param in docstring.params:
-                    param_descriptions[param.arg_name] = param.description
-
             for name, param in sig.parameters.items():
                 if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                     continue
 
-                param_schema = {"type": "string"}
-                if name in param_descriptions:
-                    param_schema["description"] = param_descriptions[name]
+                param_schema = {"type": "string", "title": name.capitalize()}
 
                 if param.annotation != inspect.Parameter.empty:
-                    if param.annotation == str:
-                        param_schema["type"] = "string"
-                    elif param.annotation == int:
-                        param_schema["type"] = "integer"
-                    elif param.annotation == float:
-                        param_schema["type"] = "number"
-                    elif param.annotation == bool:
-                        param_schema["type"] = "boolean"
-                    elif param.annotation == list:
-                        param_schema["type"] = "array"
-                    elif param.annotation == dict:
-                        param_schema["type"] = "object"
+                    if is_literal_type(param.annotation):
+                        param_schema["enum"] = list(get_args(param.annotation))
+                    else:
+                        if param.annotation == str:
+                            param_schema["type"] = "string"
+                        elif param.annotation == int:
+                            param_schema["type"] = "integer"
+                        elif param.annotation == float:
+                            param_schema["type"] = "number"
+                        elif param.annotation == bool:
+                            param_schema["type"] = "boolean"
+                        elif param.annotation == list:
+                            param_schema["type"] = "array"
+                        elif param.annotation == dict:
+                            param_schema["type"] = "object"
 
                 properties[name] = param_schema
                 if param.default == inspect.Parameter.empty:
@@ -987,21 +994,18 @@ def convert_to_tool(
                 "type": "object",
                 "properties": properties,
                 "required": required,
+                "title": tool.__name__,
                 "additionalProperties": False,
             }
 
-            function_def = {
-                "name": tool.__name__,
-                "parameters": parameters_schema,
+            return {
+                "type": "function",
+                "function": {
+                    "name": tool.__name__,
+                    "strict": True,
+                    "parameters": parameters_schema
+                }
             }
-
-            if tool.__doc__:
-                docstring = docstring_parser.parse(tool.__doc__)
-                function_def["description"] = docstring.description
-                if docstring.returns:
-                    function_def["returns"] = docstring.returns.description
-
-            return {"type": "function", "function": function_def}
 
         raise TypeError(f"Cannot convert {type(tool)} to tool")
     except Exception as e:
