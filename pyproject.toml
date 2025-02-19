@@ -6,7 +6,7 @@
 
 # chatspec
 name = "chatspec"
-version = "0.0.8"
+version = "0.0.9"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [
