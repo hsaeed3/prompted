@@ -26,7 +26,6 @@ from chatspec.utils import (
     normalize_system_prompt,
     convert_to_pydantic_model,
     create_literal_pydantic_model,
-    markdownify,
     stream_passthrough,
 )
 
