@@ -6,7 +6,7 @@
 
 # chatspec
 name = "chatspec"
-version = "0.0.9"
+version = "0.0.10"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [
@@ -22,6 +22,7 @@ dependencies = [
     "cachetools>=5.5.1",
     "docstring-parser>=0.16",
     "pydantic>=2.10.6",
+    "typing-inspect>=0.9.0",
 ]
 
 # ------------------------------------------------------------------------
