@@ -6,7 +6,6 @@ for chat completions, as well as the mock_completion() method; similar to litell
 completion() method.
 """
 
-
 import time
 import uuid
 import json
@@ -20,7 +19,7 @@ from typing import (
     Optional,
     Union,
     overload,
-    get_args
+    get_args,
 )
 from .types import (
     Completion,
@@ -287,7 +286,9 @@ class MockAI:
                                     tool_calls=None,
                                     tool_call_id=None,
                                 ),
-                                finish_reason="stop" if not tool_calls else "length",
+                                finish_reason="stop"
+                                if not tool_calls
+                                else "length",
                                 index=0,
                                 logprobs=None,
                             )
@@ -337,58 +338,95 @@ class MockAI:
             user_input = (
                 messages[-1].get("content", "") if messages else ""
             )
-            
+
             # Initialize tool_calls
             tool_calls: List[CompletionToolCall] = []
             finish_reason = "stop"
-            
+
             # Process tools if present
-            if tools := params.get('tools'):
+            if tools := params.get("tools"):
                 logger.debug(f"Raw tools input: {tools}")
                 try:
                     # Handle tools dictionary
                     if isinstance(tools, dict):
                         for tool_data in tools.values():
-                            logger.debug(f"Processing tool data: {tool_data}")
-                            if isinstance(tool_data, dict) and tool_data.get("type") == "function":
+                            logger.debug(
+                                f"Processing tool data: {tool_data}"
+                            )
+                            if (
+                                isinstance(tool_data, dict)
+                                and tool_data.get("type") == "function"
+                            ):
                                 # Generate mock arguments based on parameters
                                 mock_args = {}
                                 if "parameters" in tool_data["function"]:
-                                    params_schema = tool_data["function"]["parameters"]
+                                    params_schema = tool_data["function"][
+                                        "parameters"
+                                    ]
                                     if "properties" in params_schema:
-                                        for param_name, param_info in params_schema["properties"].items():
+                                        for (
+                                            param_name,
+                                            param_info,
+                                        ) in params_schema[
+                                            "properties"
+                                        ].items():
                                             # Generate mock values based on type
-                                            if param_info.get("type") == "string":
-                                                mock_args[param_name] = "mock_string"
-                                            elif param_info.get("type") == "number":
+                                            if (
+                                                param_info.get("type")
+                                                == "string"
+                                            ):
+                                                mock_args[param_name] = (
+                                                    "mock_string"
+                                                )
+                                            elif (
+                                                param_info.get("type")
+                                                == "number"
+                                            ):
                                                 mock_args[param_name] = 42
-                                            elif param_info.get("type") == "boolean":
-                                                mock_args[param_name] = True
+                                            elif (
+                                                param_info.get("type")
+                                                == "boolean"
+                                            ):
+                                                mock_args[param_name] = (
+                                                    True
+                                                )
                                             else:
-                                                mock_args[param_name] = "mock_value"
+                                                mock_args[param_name] = (
+                                                    "mock_value"
+                                                )
 
                                 # Create CompletionFunction with mock arguments
                                 function = CompletionFunction(
                                     name=tool_data["function"]["name"],
-                                    arguments=json.dumps(mock_args)  # Convert mock args to JSON string
+                                    arguments=json.dumps(
+                                        mock_args
+                                    ),  # Convert mock args to JSON string
                                 )
-                                logger.debug(f"Created function with args: {function}")
-                                
+                                logger.debug(
+                                    f"Created function with args: {function}"
+                                )
+
                                 # Create CompletionToolCall
                                 tool_call = CompletionToolCall(
                                     id=str(uuid.uuid4()),
                                     type="function",
-                                    function=function
+                                    function=function,
                                 )
                                 tool_calls.append(tool_call)
-                                logger.debug(f"Created tool call: {tool_call}")
-                    
+                                logger.debug(
+                                    f"Created tool call: {tool_call}"
+                                )
+
                     if tool_calls:
                         finish_reason = "tool_calls"
-                        logger.debug(f"Final tool_calls list: {tool_calls}")
+                        logger.debug(
+                            f"Final tool_calls list: {tool_calls}"
+                        )
                 except Exception as e:
                     logger.error(f"Failed to create tool calls: {str(e)}")
-                    raise MockAIError(f"Failed to create tool calls: {str(e)}")
+                    raise MockAIError(
+                        f"Failed to create tool calls: {str(e)}"
+                    )
 
             # Create CompletionMessage with all fields
             message = CompletionMessage(

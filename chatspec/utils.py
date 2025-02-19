@@ -81,6 +81,8 @@ logger = logging.getLogger("chatspec")
 #
 # cache
 _CACHE = TTLCache(maxsize=1000, ttl=3600)
+
+
 #
 # exception
 class ChatSpecError(Exception):
@@ -89,6 +91,8 @@ class ChatSpecError(Exception):
     """
 
     pass
+
+
 # ------------------------------------------------------------------------------
 
 
@@ -178,8 +182,11 @@ _TYPE_MAPPING = {
 }
 
 
-def _cached(key_fn: Callable[..., str]) -> Callable[[Callable[..., T]], Callable[..., T]]:
+def _cached(
+    key_fn: Callable[..., str],
+) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """More efficient caching decorator that only creates cache entries when needed."""
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> T:
@@ -191,7 +198,9 @@ def _cached(key_fn: Callable[..., str]) -> Callable[[Callable[..., T]], Callable
             except Exception:
                 # On any error, fall back to uncached function call
                 return func(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -229,19 +238,23 @@ class _StreamPassthrough:
                     if hasattr(choice, "delta"):
                         content = ""
                         tool_calls = None
-                        
+
                         # Get content and tool_calls from delta
                         if isinstance(choice.delta, dict):
                             content = choice.delta.get("content", "")
                             tool_calls = choice.delta.get("tool_calls")
                         else:
                             content = getattr(choice.delta, "content", "")
-                            tool_calls = getattr(choice.delta, "tool_calls", None)
+                            tool_calls = getattr(
+                                choice.delta, "tool_calls", None
+                            )
 
                         # Create a proper CompletionMessage with empty string as default content
                         choice.delta = CompletionMessage(
                             role="assistant",
-                            content="" if content is None else content,  # Ensure content is never None
+                            content=""
+                            if content is None
+                            else content,  # Ensure content is never None
                             name=None,
                             function_call=None,
                             tool_calls=tool_calls,
@@ -402,9 +415,7 @@ def is_stream(completion: Any) -> bool:
         return False
 
 
-@_cached(
-    lambda message: _make_hashable(message) if message else ""
-)
+@_cached(lambda message: _make_hashable(message) if message else "")
 def is_message(message: Any) -> bool:
     """Checks if a given object is a valid chat message."""
     try:
@@ -435,9 +446,7 @@ def is_message(message: Any) -> bool:
         return False
 
 
-@_cached(
-    lambda tool: _make_hashable(tool) if tool else ""
-)
+@_cached(lambda tool: _make_hashable(tool) if tool else "")
 def is_tool(tool: Any) -> bool:
     """
     Checks if a given object is a valid tool in the OpenAI API.
@@ -461,9 +470,7 @@ def is_tool(tool: Any) -> bool:
         return False
 
 
-@_cached(
-    lambda messages: _make_hashable(messages) if messages else ""
-)
+@_cached(lambda messages: _make_hashable(messages) if messages else "")
 def has_system_prompt(messages: List[Message]) -> bool:
     """
     Checks if the message thread contains at least one system prompt.
@@ -605,7 +612,7 @@ def dump_stream_to_message(stream: Any) -> Message:
 def dump_stream_to_completion(stream: Any) -> Completion:
     """
     Aggregates a stream of ChatCompletionChunks into a single Completion using the standardized Pydantic models.
-    
+
     Instead of creating a dictionary for each choice, this function now creates a proper
     CompletionMessage (and Completion.Choice) so that the resulting Completion adheres to the
     models and types expected throughout the library (as seen in chatspec/mock.py).
@@ -614,12 +621,17 @@ def dump_stream_to_completion(stream: Any) -> Completion:
         A Completion object as defined in `chatspec/types.py`.
     """
     try:
-        from .types import Completion, CompletionMessage  # using the models directly
+        from .types import (
+            Completion,
+            CompletionMessage,
+        )  # using the models directly
 
         choices = []
         for chunk in stream:
             # Safely extract content from the chunk's delta field.
-            delta_content = _get_value(_get_value(chunk.choices[0], "delta", {}), "content", "")
+            delta_content = _get_value(
+                _get_value(chunk.choices[0], "delta", {}), "content", ""
+            )
             # Create a proper CompletionMessage instance.
             message = CompletionMessage(
                 role="assistant",
@@ -627,14 +639,14 @@ def dump_stream_to_completion(stream: Any) -> Completion:
                 name=None,
                 function_call=None,
                 tool_calls=None,
-                tool_call_id=None
+                tool_call_id=None,
             )
             # Wrap the message in a Completion.Choice instance.
             choice_obj = Completion.Choice(
                 message=message,
                 finish_reason="stop",  # default finish_reason; adjust as needed
                 index=0,
-                logprobs=None
+                logprobs=None,
             )
             choices.append(choice_obj)
 
@@ -644,7 +656,7 @@ def dump_stream_to_completion(stream: Any) -> Completion:
             choices=choices,
             created=0,
             model="stream",
-            object="chat.completion"
+            object="chat.completion",
         )
     except Exception as e:
         logger.debug(f"Error dumping stream to completion: {e}")
@@ -720,33 +732,37 @@ def print_stream(stream: Iterator[CompletionChunk]) -> None:
     """
     try:
         for chunk in stream:
-            if hasattr(chunk, 'choices') and chunk.choices:
+            if hasattr(chunk, "choices") and chunk.choices:
                 choice = chunk.choices[0]
-                if hasattr(choice, 'delta'):
+                if hasattr(choice, "delta"):
                     # Handle content
                     content = ""
                     if isinstance(choice.delta, dict):
                         content = choice.delta.get("content", "")
                     else:
                         content = getattr(choice.delta, "content", "")
-                    
+
                     if content:
                         print(content, end="", flush=True)
-                    
+
                     # Handle tool calls
                     tool_calls = None
                     if isinstance(choice.delta, dict):
                         tool_calls = choice.delta.get("tool_calls")
                     else:
-                        tool_calls = getattr(choice.delta, "tool_calls", None)
-                    
+                        tool_calls = getattr(
+                            choice.delta, "tool_calls", None
+                        )
+
                     if tool_calls:
                         for tool_call in tool_calls:
                             print("\nTool Call:")
                             print(f"  ID: {tool_call.id}")
                             print(f"  Type: {tool_call.type}")
                             print(f"  Function: {tool_call.function.name}")
-                            print(f"  Arguments: {tool_call.function.arguments}")
+                            print(
+                                f"  Arguments: {tool_call.function.arguments}"
+                            )
         print()  # Add final newline
     except Exception as e:
         logger.error(f"Error printing stream: {e}")
@@ -784,7 +800,9 @@ def get_tool_calls(completion: Any) -> List[Dict[str, Any]]:
 @_cached(
     lambda completion, tool: _make_hashable(
         (completion, tool.__name__ if callable(tool) else tool)
-    ) if completion else ""
+    )
+    if completion
+    else ""
 )
 def was_tool_called(
     completion: Any, tool: Union[str, Callable, Dict[str, Any]]
@@ -882,9 +900,7 @@ def create_tool_message(completion: Any, output: Any) -> Message:
         raise
 
 
-@_cached(
-    lambda tool: _make_hashable(tool) if tool else ""
-)
+@_cached(lambda tool: _make_hashable(tool) if tool else "")
 def convert_to_tool(
     tool: Union[BaseModel, Callable, Dict[str, Any]],
 ) -> Tool:
@@ -906,6 +922,7 @@ def convert_to_tool(
         TypeError: If the input cannot be converted to a tool.
     """
     import docstring_parser
+
     try:
         if (
             isinstance(tool, dict)
@@ -1045,9 +1062,7 @@ def convert_to_tools(
 # ------------------------------------------------------------------------------
 
 
-@_cached(
-    lambda messages: _make_hashable(messages) if messages else ""
-)
+@_cached(lambda messages: _make_hashable(messages) if messages else "")
 def normalize_messages(messages: Any) -> List[Message]:
     """Formats the input into a list of chat completion messages."""
     try:
@@ -1273,9 +1288,10 @@ def create_input_audio_message(
 
 
 @_cached(
-    lambda type_hint, index=None, description=None, default=...: _make_hashable(
-        (type_hint, index, description, default)
-    )
+    lambda type_hint,
+    index=None,
+    description=None,
+    default=...: _make_hashable((type_hint, index, description, default))
 )
 def create_field_mapping(
     type_hint: Type,
@@ -1311,9 +1327,7 @@ def create_field_mapping(
         raise
 
 
-@_cached(
-    lambda func: _make_hashable(func)
-)
+@_cached(lambda func: _make_hashable(func))
 def extract_function_fields(func: Callable) -> Dict[str, Any]:
     """
     Extracts fields from a function's signature and docstring.
@@ -1362,9 +1376,11 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 
 
 @_cached(
-    lambda target, init=False, name=None, description=None, default=...: _make_hashable(
-        (target, init, name, description, default)
-    )
+    lambda target,
+    init=False,
+    name=None,
+    description=None,
+    default=...: _make_hashable((target, init, name, description, default))
 )
 def convert_to_pydantic_model(
     target: Union[
@@ -1480,7 +1496,9 @@ def convert_to_pydantic_model(
 
 # this one is kinda super specific
 @_cached(
-    lambda target, name=None: _make_hashable((target, name)) if target else ""
+    lambda target, name=None: _make_hashable((target, name))
+    if target
+    else ""
 )
 def create_literal_pydantic_model(
     target: Union[Type, List[str]],
@@ -1518,6 +1536,3 @@ def create_literal_pydantic_model(
             ),
         ),
     )
-
-
-
