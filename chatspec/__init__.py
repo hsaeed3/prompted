@@ -15,12 +15,9 @@ the chat completions API specification.
 
 from .utils import *
 from . import params, types
+from .markdown import markdownify
 from .mock import MockAI, mock_completion
-from .state import State
-
-
-# add params class to top level
-Params = params.Params
+from .params import Params
 
 
 __all__ = [
@@ -58,6 +55,6 @@ __all__ = [
     # mock
     "MockAI",
     "mock_completion",
-    # state
-    "State",
+    # markdown,
+    "markdownify"
 ]
