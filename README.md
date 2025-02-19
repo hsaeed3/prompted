@@ -7,6 +7,9 @@ Tiny types & utilities built for the OpenAI Chat Completions API specification.
 [![PyPI](https://badge.fury.io/py/chatspec.svg)](https://badge.fury.io/py/chatspec)
 
 
+> **Hammad Saeed** ~ [`@hsaeed3`](https://github.com/hsaeed3)
+
+
 ## 📦 Installation
 
 ```bash
@@ -15,7 +18,7 @@ pip install chatspec
 
 #  📚 Documentation & Examples
 
-`chatspec` provides a 'prethora' (as many as would actually be useful) of types, models & methods for validating, converting and augmenting objects used in the OpenAI chat completions API specification, a `State` class for managing messages threads for agentic application, as well as a `MockAI` client & `mock_completion()` method for creating mock llm responses quickly. I use [Instructor](https://github.com/instructor-ai/instructor) for all of my structured outputs, so `Pydantic` is a core part of this library. The point of this library is to provide a common interface for methods that I have found myself needing to replicate across multiple projects.
+`chatspec` provides a 'prethora' (as many as would actually be useful) of types, models & methods for validating, converting and augmenting objects used in the OpenAI chat completions API specification, as well as a `MockAI` client & `mock_completion()` method for creating mock llm responses quickly. I use [Instructor](https://github.com/instructor-ai/instructor) for all of my structured outputs, so `Pydantic` is a core part of this library. The point of this library is to provide a common interface for methods that I have found myself needing to replicate across multiple projects.
 
 ## ✨ Quickstart
 
@@ -68,7 +71,6 @@ chatspec.print_stream(stream)
   - [Instance Checking & Validation](#instance-checking--validation-of-completions--streams)
   - [Stream Passthrough & Methods](#the-stream-passthrough--stream-specific-methods)
 - [Types & Parameters](#-types--parameters)
-- [State Manager (*For Chatbots & Agentic Applications*)](#-state-manager-for-chatbots--agentic-applications)
 - [Pydantic Models & Structured Outputs](#-pydantic-models--structured-outputs)
 - [Markdown Formatting](#-markdown-formatting)
 
@@ -409,10 +411,6 @@ from chatspec.types import Message, Tool, ToolCall, Completion
 message = Message(role = "user", content = "Hello, how are you?")
 # >>> {"role": "user", "content": "Hello, how are you?"}
 ```
-
-## 🧠 State Manager (*For Chatbots & Agentic Applications*)
-
-> Documentation coming soon!
 
 ## 𝌭 Pydantic Models & Structured Outputs
 
