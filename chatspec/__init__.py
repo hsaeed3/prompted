@@ -45,7 +45,8 @@ from .params import (
     StreamOptionsParam,
     ClientParams,
     CompletionParams,
-    EmbeddingParams
+    EmbeddingParams,
+    InstructorModeParam
 )
 
 # [types]
