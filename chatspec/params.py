@@ -25,6 +25,37 @@ from .types import Message, Tool, Function
 # ----------------------------------------------------------------------------
 
 
+InstructorModeParam : TypeAlias = Literal[
+    "function_call",
+    "parallel_tool_call",
+    "tool_call",
+    "mistral_tools",
+    "json_mode",
+    "json_o1",
+    "markdown_json_mode", 
+    "json_schema_mode",
+    "anthropic_tools",
+    "anthropic_json",
+    "cohere_tools",
+    "vertexai_tools",
+    "vertexai_json",
+    "vertexai_parallel_tools",
+    "gemini_json",
+    "gemini_tools",
+    "json_object",
+    "tools_strict",
+    "cerebras_tools",
+    "cerebras_json",
+    "fireworks_tools",
+    "fireworks_json",
+    "writer_tools"
+]
+"""
+Domain-specific parameter for the `Instructor` libraries client
+module.
+"""
+
+
 MessagesParam: TypeAlias = Iterable[Message]
 """
 The messages to use when creating a chat completion
