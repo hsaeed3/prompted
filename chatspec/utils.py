@@ -926,7 +926,11 @@ def convert_to_tool(
     from typing import get_args
 
     try:
-        if isinstance(tool, dict) and "type" in tool and "function" in tool:
+        if (
+            isinstance(tool, dict)
+            and "type" in tool
+            and "function" in tool
+        ):
             return tool
 
         if isinstance(tool, type) and issubclass(tool, BaseModel):
@@ -939,7 +943,9 @@ def convert_to_tool(
                         prop_schema["title"] = prop_name.capitalize()
                         prop_schema["type"] = "string"
                     elif is_literal_type(prop_schema.get("type")):
-                        prop_schema["enum"] = list(get_args(prop_schema["type"]))
+                        prop_schema["enum"] = list(
+                            get_args(prop_schema["type"])
+                        )
                         prop_schema["title"] = prop_name.capitalize()
                         prop_schema["type"] = "string"
                     else:
@@ -952,8 +958,8 @@ def convert_to_tool(
                 "function": {
                     "name": tool.__name__,
                     "parameters": schema,
-                    "strict": True
-                }
+                    "strict": True,
+                },
             }
 
         if callable(tool):
@@ -967,11 +973,16 @@ def convert_to_tool(
                 if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                     continue
 
-                param_schema = {"type": "string", "title": name.capitalize()}
+                param_schema = {
+                    "type": "string",
+                    "title": name.capitalize(),
+                }
 
                 if param.annotation != inspect.Parameter.empty:
                     if is_literal_type(param.annotation):
-                        param_schema["enum"] = list(get_args(param.annotation))
+                        param_schema["enum"] = list(
+                            get_args(param.annotation)
+                        )
                     else:
                         if param.annotation == str:
                             param_schema["type"] = "string"
@@ -1003,8 +1014,8 @@ def convert_to_tool(
                 "function": {
                     "name": tool.__name__,
                     "strict": True,
-                    "parameters": parameters_schema
-                }
+                    "parameters": parameters_schema,
+                },
             }
 
         raise TypeError(f"Cannot convert {type(tool)} to tool")
