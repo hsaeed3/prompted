@@ -12,6 +12,7 @@ import json
 from typing import (
     Any,
     Dict,
+    AsyncIterator,
     Iterator,
     Iterable,
     List,
@@ -57,8 +58,12 @@ from .utils import (
 
 __all__ = [
     "AI",
+    "AsyncAI",
+    "a"
     "mock_completion",
     "mock_embedding",
+    "amock_completion",
+    "amock_embedding",
 ]
 
 
@@ -600,6 +605,113 @@ class AI:
                 "model": model,
                 "usage": {"prompt_tokens": 0, "total_tokens": 0},
             }
+        
+
+# [Async Client]
+class AsyncAI:
+    """
+    An asynchronous mock client implementation of the OpenAI client.
+    """
+
+    chat: "AsyncAI.Chat"
+    embeddings: "AsyncAI.Embeddings"
+
+    def __init__(
+        self,
+        base_url: Optional[BaseURLParam] = None,
+        api_key: Optional[str] = None,
+        organization: Optional[str] = None,
+        timeout: Optional[float] = None,
+    ):
+        self.base_url = base_url
+        self.api_key = api_key
+        self.organization = organization
+        self.timeout = timeout
+
+        self.chat = self.Chat(self)
+        self.embeddings = self.Embeddings(self)
+
+    class Chat:
+        """
+        A mocked implementation of the `chat.Chat` class from the `OpenAI`
+        client & package.
+        """
+
+        completions: "AsyncAI.Chat.Completions"
+
+        def __init__(self, ai: "AsyncAI"):
+            self.ai = ai
+            self.completions = self.Completions(self)
+
+        class Completions:
+            """
+            A mocked implementation of the `completions.AsyncCompletions` class from
+            the `OpenAI` client & package.
+            """
+
+            def __init__(self, chat: "AsyncAI.Chat"):
+                self.chat = chat
+
+            @classmethod
+            async def create(
+                cls,
+                *,
+                messages: MessagesParam,
+                model: ModelParam = "gpt-4o-mini",
+                stream: bool = False,
+                tools: Optional[Iterable[Tool]] = None,
+                **kwargs: Params,
+            ) -> Union[Completion, AsyncIterator[CompletionChunk]]:
+                """
+                Asynchronously create a mocked chat completion.
+                """
+                result = mock_completion(
+                    messages=messages,
+                    model=model,
+                    stream=stream,
+                    tools=tools,
+                    **kwargs,
+                )
+
+                if not stream:
+                    return result
+                else:
+                    # Convert synchronous iterator to async iterator
+                    async def aiter():
+                        for chunk in result:
+                            yield chunk
+                    return aiter()
+
+    class Embeddings:
+        """
+        A mocked implementation of the `embeddings.AsyncEmbeddings` class from the
+        `OpenAI` client & package.
+        """
+
+        def __init__(self, ai: "AsyncAI"):
+            self.ai = ai
+
+        async def create(
+            self,
+            *,
+            input: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]],
+            model: str,
+            dimensions: Optional[int] = None,
+            encoding_format: Optional[Literal["float", "base64"]] = None,
+            user: Optional[str] = None,
+            timeout: Optional[float] = None,
+        ) -> Embedding:
+            """
+            Mocks the OpenAI Embedding.create method.
+            """
+            return mock_embedding(
+                input=input,
+                model=model,
+                dimensions=dimensions,
+                encoding_format=encoding_format,
+                user=user,
+                timeout=timeout,
+            )
 
 
 # ----------------------------------------------------------------------------
@@ -785,3 +897,39 @@ def mock_embedding(
         user=user,
         timeout=timeout,
     )
+
+
+async def amock_completion(
+    messages: MessagesParam,
+    model: ModelParam = "gpt-4o-mini",
+    *,
+    stream: Optional[bool] = False,
+    **kwargs: Params,
+) -> Union[Completion, AsyncIterator[CompletionChunk]]:
+    """
+    Asynchronously mocks the OpenAI ChatCompletion.create method.
+    """
+    result = mock_completion(messages=messages, model=model, stream=stream, **kwargs)
+    
+    if not stream:
+        return result
+    else:
+        # Convert synchronous iterator to async iterator
+        async def aiter():
+            for chunk in result:
+                yield chunk
+        return aiter()
+
+
+async def amock_embedding(
+    input: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]],
+    model: str,
+    **kwargs: Params,
+) -> Embedding:  # Changed return type from AsyncIterator to Embedding
+    """
+    Asynchronously creates a mock embedding response.
+    """
+    return mock_embedding(input=input, model=model, **kwargs)
+
+
+
