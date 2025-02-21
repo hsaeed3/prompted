@@ -701,3 +701,27 @@ class CompletionChunk(Subscriptable):
     """
     The usage of the completion.
     """
+
+
+# ----------------------------------------------------------------------------
+# Embeddings
+# ----------------------------------------------------------------------------
+
+
+class Embedding(Subscriptable):
+    """
+    The response from an OpenAI API embedding endpoint.
+    """
+
+    embedding: List[float]
+    """
+    The embedding vector, which is a list of floats.
+    """
+    index: int
+    """
+    The index of the embedding in the list of embeddings.
+    """
+    object: Literal["embedding"]
+    """
+    The object type of the embedding.
+    """

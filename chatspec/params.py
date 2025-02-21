@@ -270,6 +270,19 @@ class ClientParams(TypedDict):
     max_retries: int
 
 
+class EmbeddingParams(TypedDict):
+    """
+    A dictionary representing parameters used when creating an embedding.
+    """
+
+    input: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]
+    model: ModelParam
+    dimensions: Optional[int]
+    encoding_format: Optional[Literal["float", "base64"]]
+    user: Optional[str]
+    timeout: Optional[float]
+
+
 class CompletionParams(TypedDict):
     """
     A dictionary representing parameters used when creating a chat completion.
