@@ -21,7 +21,7 @@ the chat completions API specification.
 from .markdown import markdownify, MarkdownObject
 
 # [mock]
-from .mock import mock_completion
+from .mock import mock_completion, mock_embedding, AI
 
 # [params]
 from .params import (
@@ -45,6 +45,7 @@ from .params import (
     StreamOptionsParam,
     ClientParams,
     CompletionParams,
+    EmbeddingParams
 )
 
 # [types]
@@ -69,6 +70,7 @@ from .types import (
     CompletionMessage,
     CompletionFunction,
     CompletionToolCall,
+    Embedding
 )
 
 # [utils]
