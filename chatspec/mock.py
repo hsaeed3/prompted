@@ -56,7 +56,9 @@ from .utils import (
 )
 
 __all__ = [
+    "AI",
     "mock_completion",
+    "mock_embedding",
 ]
 
 

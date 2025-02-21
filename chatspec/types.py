@@ -22,6 +22,32 @@ from typing_extensions import (
 )
 from pydantic import BaseModel
 
+__all__ = [
+    "FunctionParameters",
+    "Function",
+    "Tool",
+    "FunctionCall",
+    "ToolCall",
+    "MessageContentImagePart",
+    "MessageContentAudioPart",
+    "MessageContentTextPart",
+    "MessageContentPart",
+    "MessageContent",
+    "MessageTextContent",
+    "MessageRole",
+    "Message",
+    "Subscriptable",
+    "TopLogprob",
+    "TokenLogprob",
+    "ChoiceLogprobs",
+    "CompletionFunction",
+    "CompletionToolCall",
+    "CompletionMessage",
+    "Completion",
+    "CompletionChunk",
+    "Embedding",
+]
+
 
 # ----------------------------------------------------------------------------
 # Tool & Function Calling
