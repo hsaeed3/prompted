@@ -16,7 +16,7 @@ from typing import (
 from typing_extensions import TypeAlias, TypedDict, Required
 from .types import Message, Tool, Function
 
-__all__ = [
+__all__ = (
     "InstructorModeParam",
     "MessagesParam",
     "ChatModel",
@@ -34,7 +34,7 @@ __all__ = [
     "EmbeddingParams",
     "CompletionParams",
     "Params",
-]
+)
 
 
 # ----------------------------------------------------------------------------
