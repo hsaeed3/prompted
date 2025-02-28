@@ -56,15 +56,14 @@ from .utils import (
     convert_to_tools,
 )
 
-__all__ = [
+__all__ = (
     "AI",
     "AsyncAI",
-    "a"
-    "mock_completion",
+    "amock_completion",
     "mock_embedding",
     "amock_completion",
     "amock_embedding",
-]
+)
 
 
 # ----------------------------------------------------------------------------
@@ -605,7 +604,7 @@ class AI:
                 "model": model,
                 "usage": {"prompt_tokens": 0, "total_tokens": 0},
             }
-        
+
 
 # [Async Client]
 class AsyncAI:
@@ -680,6 +679,7 @@ class AsyncAI:
                     async def aiter():
                         for chunk in result:
                             yield chunk
+
                     return aiter()
 
     class Embeddings:
@@ -694,7 +694,9 @@ class AsyncAI:
         async def create(
             self,
             *,
-            input: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]],
+            input: Union[
+                str, List[str], Iterable[int], Iterable[Iterable[int]]
+            ],
             model: str,
             dimensions: Optional[int] = None,
             encoding_format: Optional[Literal["float", "base64"]] = None,
@@ -909,8 +911,10 @@ async def amock_completion(
     """
     Asynchronously mocks the OpenAI ChatCompletion.create method.
     """
-    result = mock_completion(messages=messages, model=model, stream=stream, **kwargs)
-    
+    result = mock_completion(
+        messages=messages, model=model, stream=stream, **kwargs
+    )
+
     if not stream:
         return result
     else:
@@ -918,6 +922,7 @@ async def amock_completion(
         async def aiter():
             for chunk in result:
                 yield chunk
+
         return aiter()
 
 
@@ -930,6 +935,3 @@ async def amock_embedding(
     Asynchronously creates a mock embedding response.
     """
     return mock_embedding(input=input, model=model, **kwargs)
-
-
-
