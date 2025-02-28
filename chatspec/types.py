@@ -22,7 +22,7 @@ from typing_extensions import (
 )
 from pydantic import BaseModel
 
-__all__ = [
+__all__ = (
     "FunctionParameters",
     "Function",
     "Tool",
@@ -46,7 +46,7 @@ __all__ = [
     "Completion",
     "CompletionChunk",
     "Embedding",
-]
+)
 
 
 # ----------------------------------------------------------------------------
