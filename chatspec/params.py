@@ -45,14 +45,14 @@ __all__ = (
 # ----------------------------------------------------------------------------
 
 
-InstructorModeParam : TypeAlias = Literal[
+InstructorModeParam: TypeAlias = Literal[
     "function_call",
     "parallel_tool_call",
     "tool_call",
     "mistral_tools",
     "json_mode",
     "json_o1",
-    "markdown_json_mode", 
+    "markdown_json_mode",
     "json_schema_mode",
     "anthropic_tools",
     "anthropic_json",
@@ -68,7 +68,7 @@ InstructorModeParam : TypeAlias = Literal[
     "cerebras_json",
     "fireworks_tools",
     "fireworks_json",
-    "writer_tools"
+    "writer_tools",
 ]
 """
 Domain-specific parameter for the `Instructor` libraries client
