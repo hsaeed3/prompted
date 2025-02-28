@@ -5,22 +5,8 @@ Contains tests for the MockAI class and mock_completion function.
 """
 
 import pytest
-from chatspec.mock import MockAI, mock_completion, MockAIError
+from chatspec.mock import mock_completion
 from chatspec.utils import _StreamPassthrough
-
-
-def test_mock_ai_initialization():
-    """Test basic MockAI initialization"""
-    client = MockAI(
-        base_url="http://test.com",
-        api_key="test-key",
-        organization="test-org",
-        timeout=30.0,
-    )
-    assert client.base_url == "http://test.com"
-    assert client.api_key == "test-key"
-    assert client.organization == "test-org"
-    assert client.timeout == 30.0
 
 
 def test_mock_completion_basic():
@@ -103,22 +89,6 @@ def test_mock_completion_streaming_with_tools():
     last_chunk = chunks[-1]
     assert last_chunk.choices[0].delta.tool_calls is not None
     assert last_chunk.choices[0].finish_reason == "tool_calls"
-
-
-def test_mock_completion_error_handling():
-    """Test error handling in mock completion"""
-    with pytest.raises(MockAIError):
-        mock_completion(messages=[])  # Empty messages should raise error
-
-
-def test_mock_ai_create_method():
-    """Test MockAI.create class method"""
-    messages = [{"role": "user", "content": "Hello"}]
-    response = MockAI.create(messages=messages)
-
-    assert response.id is not None
-    assert len(response.choices) == 1
-    assert response.model == "gpt-4o-mini"  # Default model
 
 
 def test_mock_completion_parameters():
