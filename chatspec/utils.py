@@ -12,6 +12,7 @@ import json
 from cachetools import TTLCache
 from functools import wraps
 from dataclasses import is_dataclass
+from docstring_parser import parse
 from inspect import signature
 from pydantic import BaseModel, Field, create_model
 from pathlib import Path
@@ -191,7 +192,9 @@ def _cached(
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> T:
             try:
-                cache_key = key_fn(*args, **kwargs)
+                # Include function name in cache key to avoid cross-function cache collisions
+                func_name = func.__name__
+                cache_key = f"{func_name}:{key_fn(*args, **kwargs)}"
                 if cache_key not in _CACHE:
                     _CACHE[cache_key] = func(*args, **kwargs)
                 return _CACHE[cache_key]
@@ -969,6 +972,12 @@ def convert_to_tool(
             properties = {}
             required = []
 
+            # Parse docstring using docstring_parser instead of inspect
+            docstring = tool.__doc__
+            doc_info = None
+            if docstring:
+                doc_info = parse(docstring)
+
             for name, param in sig.parameters.items():
                 if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
                     continue
@@ -977,6 +986,17 @@ def convert_to_tool(
                     "type": "string",
                     "title": name.capitalize(),
                 }
+
+                # Add description from docstring if available
+                if doc_info and doc_info.params:
+                    for doc_param in doc_info.params:
+                        if doc_param.arg_name == name:
+                            if doc_param.description:
+                                param_schema["description"] = doc_param.description
+                            # Check if parameter is required from docstring
+                            if doc_param.description and "required" in doc_param.description.lower():
+                                if name not in required:
+                                    required.append(name)
 
                 if param.annotation != inspect.Parameter.empty:
                     if is_literal_type(param.annotation):
@@ -998,7 +1018,7 @@ def convert_to_tool(
                             param_schema["type"] = "object"
 
                 properties[name] = param_schema
-                if param.default == inspect.Parameter.empty:
+                if param.default == inspect.Parameter.empty and name not in required:
                     required.append(name)
 
             parameters_schema = {
@@ -1009,13 +1029,21 @@ def convert_to_tool(
                 "additionalProperties": False,
             }
 
+            # Add function description from docstring
+            function_schema = {
+                "name": tool.__name__,
+                "strict": True,
+                "parameters": parameters_schema,
+            }
+            
+            if doc_info and doc_info.short_description:
+                function_schema["description"] = doc_info.short_description
+                if doc_info.long_description:
+                    function_schema["description"] += "\n\n" + doc_info.long_description
+
             return {
                 "type": "function",
-                "function": {
-                    "name": tool.__name__,
-                    "strict": True,
-                    "parameters": parameters_schema,
-                },
+                "function": function_schema,
             }
 
         raise TypeError(f"Cannot convert {type(tool)} to tool")
@@ -1354,11 +1382,10 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
         Dictionary of field definitions
     """
     try:
-        import docstring_parser
 
         hints = get_type_hints(func)
         sig = signature(func)
-        docstring = docstring_parser.parse(func.__doc__ or "")
+        docstring = parse(func.__doc__ or "")
         fields = {}
 
         for name, param in sig.parameters.items():
@@ -1419,6 +1446,7 @@ def convert_to_pydantic_model(
     Returns:
         A pydantic model class or instance if init=True
     """
+    
     model_name = name or "GeneratedModel"
 
     # Handle existing Pydantic models
@@ -1428,30 +1456,55 @@ def convert_to_pydantic_model(
     # Handle dataclasses
     if is_dataclass(target):
         hints = get_type_hints(target)
-        fields = {
-            name: (
+        fields = {}
+        
+        # Parse docstring if available
+        docstring = target.__doc__
+        doc_info = None
+        if docstring:
+            doc_info = parse(docstring)
+            
+        for field_name, hint in hints.items():
+            description = ""
+            if doc_info and doc_info.params:
+                description = next(
+                    (p.description for p in doc_info.params if p.arg_name == field_name),
+                    ""
+                )
+            
+            fields[field_name] = (
                 hint,
-                Field(default=getattr(target, name) if init else ...),
+                Field(
+                    default=getattr(target, field_name) if init else ...,
+                    description=description
+                ),
             )
-            for name, hint in hints.items()
-        }
+            
         model_class = create_model(
-            model_name, __doc__=description, **fields
+            model_name, 
+            __doc__=description or (doc_info.short_description if doc_info else None), 
+            **fields
         )
+        
         if init and isinstance(target, type):
             return model_class
         elif init:
             return model_class(
-                **{name: getattr(target, name) for name in hints}
+                **{field_name: getattr(target, field_name) for field_name in hints}
             )
         return model_class
 
     # Handle callable (functions)
     if callable(target) and not isinstance(target, type):
         fields = extract_function_fields(target)
+        
+        # Extract just the short description from the docstring
+        doc_info = parse(target.__doc__ or "")
+        clean_description = doc_info.short_description if doc_info else None
+        
         return create_model(
             name or target.__name__,
-            __doc__=description or target.__doc__,
+            __doc__=description or clean_description,
             **fields,
         )
 
@@ -1491,14 +1544,27 @@ def convert_to_pydantic_model(
 
     # Handle model instances
     if isinstance(target, BaseModel):
+        # Parse docstring from the model's class
+        docstring = target.__class__.__doc__
+        doc_info = None
+        if docstring:
+            doc_info = parse(docstring)
+            
         if init:
+            fields = {}
+            for k, v in target.model_dump().items():
+                description = ""
+                if doc_info and doc_info.params:
+                    description = next(
+                        (p.description for p in doc_info.params if p.arg_name == k),
+                        ""
+                    )
+                fields[k] = (type(v), Field(default=v, description=description))
+                
             model_class = create_model(
                 model_name,
-                __doc__=description,
-                **{
-                    k: (type(v), Field(default=v))
-                    for k, v in target.model_dump().items()
-                },
+                __doc__=description or (doc_info.short_description if doc_info else None),
+                **fields
             )
             return model_class(**target.model_dump())
         return target.__class__
