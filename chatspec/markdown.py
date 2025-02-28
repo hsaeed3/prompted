@@ -8,7 +8,6 @@ as well as their markdown or code block representations.
 """
 
 import json
-from cachetools import cached
 from dataclasses import is_dataclass, fields as dataclass_fields
 from inspect import getdoc
 from pydantic import BaseModel
@@ -17,11 +16,11 @@ from typing_extensions import TypedDict
 
 from .utils import _make_hashable, logger, _cached
 
-__all__ = [
+__all__ = (
     "MarkdownObject",
     "MarkdownConfig",
     "markdownify",
-]
+)
 
 
 # -----------------------------------------------------------------------------
@@ -372,35 +371,6 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 # -----------------------------------------------------------------------------
 
 
-@_cached(
-    lambda target,
-    indent=0,
-    code_block=False,
-    compact=False,
-    show_types=True,
-    show_title=True,
-    show_bullets=True,
-    show_docs=True,
-    bullet_style="-",
-    language=None,
-    show_header=True,
-    _visited=None: _make_hashable(
-        (
-            target,
-            indent,
-            code_block,
-            compact,
-            show_types,
-            show_title,
-            show_bullets,
-            show_docs,
-            bullet_style,
-            language,
-            show_header,
-            _visited,
-        )
-    )
-)
 def markdownify(
     target: Any,
     indent: int = 0,
@@ -440,7 +410,7 @@ def markdownify(
     Returns:
         str: The formatted markdown string.
 
-    Example:
+    Examples:
         ```python
         from pydantic import BaseModel
 
@@ -533,215 +503,282 @@ def markdownify(
         # - value: int
         ```
     """
-    visited = _visited or set()
-    obj_id = id(target)
-    if obj_id in visited:
-        return "<circular>"
-    visited.add(obj_id)
 
-    prefix = "  " * indent
-    bullet = f"{bullet_style} " if show_bullets else ""
-
-    if target is None or isinstance(target, (str, int, float, bool)):
-        return str(target)
-    if isinstance(target, bytes):
-        return f"b'{target.hex()}'"
-
-    # Handle Pydantic models
-    try:
-        if isinstance(target, BaseModel) or (
-            isinstance(target, type) and issubclass(target, BaseModel)
-        ):
-            is_class = isinstance(target, type)
-            model_name = (
-                target.__name__ if is_class else target.__class__.__name__
+    @_cached(
+        lambda target,
+        indent=0,
+        code_block=False,
+        compact=False,
+        show_types=True,
+        show_title=True,
+        show_bullets=True,
+        show_docs=True,
+        bullet_style="-",
+        language=None,
+        show_header=True,
+        _visited=None: _make_hashable(
+            (
+                target,
+                indent,
+                code_block,
+                compact,
+                show_types,
+                show_title,
+                show_bullets,
+                show_docs,
+                bullet_style,
+                language,
+                show_header,
+                _visited,
             )
+        )
+    )
+    def _markdownify(
+        target: Any,
+        indent: int = 0,
+        code_block: bool = False,
+        compact: bool = False,
+        show_types: bool = True,
+        show_title: bool = True,
+        show_bullets: bool = True,
+        show_docs: bool = True,
+        bullet_style: str = "-",
+        language: str | None = None,
+        show_header: bool = True,
+        _visited: set[int] | None = None,
+    ) -> str:
+        visited = _visited or set()
+        obj_id = id(target)
+        if obj_id in visited:
+            return "<circular>"
+        visited.add(obj_id)
 
-            if code_block:
-                data = (
-                    target.model_dump()
-                    if not is_class
-                    else {
-                        field: f"{get_type_name(field_info.annotation)}"
-                        if show_types
-                        else "..."
-                        for field, field_info in target.model_fields.items()
-                    }
+        prefix = "  " * indent
+        bullet = f"{bullet_style} " if show_bullets else ""
+
+        if target is None or isinstance(target, (str, int, float, bool)):
+            return str(target)
+        if isinstance(target, bytes):
+            return f"b'{target.hex()}'"
+
+        # Handle Pydantic models
+        try:
+            if isinstance(target, BaseModel) or (
+                isinstance(target, type) and issubclass(target, BaseModel)
+            ):
+                is_class = isinstance(target, type)
+                model_name = (
+                    target.__name__
+                    if is_class
+                    else target.__class__.__name__
                 )
-                # Format JSON with proper indentation
-                json_str = (
-                    json.dumps(data, indent=2)
-                    if not is_class
-                    else "{\n"
-                    + "\n".join(f'  "{k}": "{v}"' for k, v in data.items())
-                    + "\n}"
-                )
-                lang_tag = f"{language or ''}"
-                return f"```{lang_tag}\n{json_str}\n```"
 
-            header_parts = (
-                [f"{prefix}{bullet}**{model_name}**:"]
-                if show_title
-                else []
-            )
-            if show_docs and show_header:
-                try:
-                    doc_dict = _parse_docstring(target)
-                    if doc_dict:
-                        doc_md = _format_docstring(
-                            doc_dict, prefix + "  ", compact
-                        )
-                        if doc_md:
-                            header_parts.append(doc_md)
-                except Exception as e:
-                    logger.warning(
-                        f"Error parsing docstring for {model_name}: {e}"
-                    )
-
-            header = "\n".join(header_parts) if header_parts else ""
-
-            fields = target.model_fields.items()
-            field_lines = []
-            field_prefix = prefix + ("  " if not compact else "")
-
-            for key, field_info in fields:
-                if compact:
-                    field_parts = [
-                        f"{key}: {get_type_name(field_info.annotation)}"
-                        if show_types
-                        else key
-                    ]
-                    field_lines.append(", ".join(field_parts))
-                else:
-                    field_parts = [
-                        f"{field_prefix}{bullet}{key}"
-                        + (
-                            f": {get_type_name(field_info.annotation)}"
+                if code_block:
+                    data = (
+                        target.model_dump()
+                        if not is_class
+                        else {
+                            field: f"{get_type_name(field_info.annotation)}"
                             if show_types
-                            else ""
+                            else "..."
+                            for field, field_info in target.model_fields.items()
+                        }
+                    )
+                    # Format JSON with proper indentation
+                    json_str = (
+                        json.dumps(data, indent=2)
+                        if not is_class
+                        else "{\n"
+                        + "\n".join(
+                            f'  "{k}": "{v}"' for k, v in data.items()
                         )
-                    ]
-                    field_lines.extend(field_parts)
+                        + "\n}"
+                    )
+                    lang_tag = f"{language or ''}"
+                    return f"```{lang_tag}\n{json_str}\n```"
 
-            if compact and field_lines:
-                return (
-                    f"{header} {', '.join(field_lines)}"
+                header_parts = (
+                    [f"{prefix}{bullet}**{model_name}**:"]
                     if show_title
-                    else ", ".join(field_lines)
+                    else []
                 )
-            else:
-                if show_bullets:
-                    if show_title:
-                        return "\n".join(
-                            filter(None, [header] + field_lines)
+                if show_docs and show_header:
+                    try:
+                        doc_dict = _parse_docstring(target)
+                        if doc_dict:
+                            doc_md = _format_docstring(
+                                doc_dict, prefix + "  ", compact
+                            )
+                            if doc_md:
+                                header_parts.append(doc_md)
+                    except Exception as e:
+                        logger.warning(
+                            f"Error parsing docstring for {model_name}: {e}"
                         )
+
+                header = "\n".join(header_parts) if header_parts else ""
+
+                fields = target.model_fields.items()
+                field_lines = []
+                field_prefix = prefix + ("  " if not compact else "")
+
+                for key, field_info in fields:
+                    if compact:
+                        field_parts = [
+                            f"{key}: {get_type_name(field_info.annotation)}"
+                            if show_types
+                            else key
+                        ]
+                        field_lines.append(", ".join(field_parts))
                     else:
-                        # When show_title is False, don't indent the field lines
-                        field_lines = [
-                            f"{prefix}{bullet}{key}"
+                        field_parts = [
+                            f"{field_prefix}{bullet}{key}"
                             + (
                                 f": {get_type_name(field_info.annotation)}"
                                 if show_types
                                 else ""
                             )
-                            for key, field_info in fields
                         ]
-                        return "\n".join(field_lines)
-                else:
-                    # Remove indentation when show_bullets is False
-                    field_lines = [line.lstrip() for line in field_lines]
-                    return "\n".join(filter(None, [header] + field_lines))
-    except Exception as e:
-        logger.error(
-            f"Error formatting pydantic model target {target} to markdown: {e}"
-        )
-        raise e
+                        field_lines.extend(field_parts)
 
-    # Handle collections
-    if isinstance(target, (list, tuple, set)):
-        if not target:
+                if compact and field_lines:
+                    return (
+                        f"{header} {', '.join(field_lines)}"
+                        if show_title
+                        else ", ".join(field_lines)
+                    )
+                else:
+                    if show_bullets:
+                        if show_title:
+                            return "\n".join(
+                                filter(None, [header] + field_lines)
+                            )
+                        else:
+                            # When show_title is False, don't indent the field lines
+                            field_lines = [
+                                f"{prefix}{bullet}{key}"
+                                + (
+                                    f": {get_type_name(field_info.annotation)}"
+                                    if show_types
+                                    else ""
+                                )
+                                for key, field_info in fields
+                            ]
+                            return "\n".join(field_lines)
+                    else:
+                        # Remove indentation when show_bullets is False
+                        field_lines = [
+                            line.lstrip() for line in field_lines
+                        ]
+                        return "\n".join(
+                            filter(None, [header] + field_lines)
+                        )
+        except Exception as e:
+            logger.error(
+                f"Error formatting pydantic model target {target} to markdown: {e}"
+            )
+            raise e
+
+        # Handle collections
+        if isinstance(target, (list, tuple, set)):
+            if not target:
+                return (
+                    "[]"
+                    if isinstance(target, list)
+                    else "()"
+                    if isinstance(target, tuple)
+                    else "{}"
+                )
+
+            if code_block and isinstance(target[0], (dict, BaseModel)):
+                json_str = json.dumps(list(target), indent=2)
+                return f"```{language or 'json'}\n{json_str}\n```"
+
+            type_name = target.__class__.__name__ if show_types else ""
+            header = (
+                f"{prefix}{bullet}**{type_name}**:"
+                if show_types and show_title
+                else f"{prefix}{bullet}"
+            )
+            indent_step = 1 if compact else 2
+            item_prefix = prefix + ("  " if not compact else "")
+
+            items = [
+                f"{item_prefix}{bullet}{markdownify(item, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
+                for item in target
+            ]
             return (
-                "[]"
-                if isinstance(target, list)
-                else "()"
-                if isinstance(target, tuple)
-                else "{}"
+                "\n".join([header] + items)
+                if show_types and show_title
+                else "\n".join(items)
             )
 
-        if code_block and isinstance(target[0], (dict, BaseModel)):
-            json_str = json.dumps(list(target), indent=2)
-            return f"```{language or 'json'}\n{json_str}\n```"
+        # Handle dictionaries
+        if isinstance(target, dict):
+            if not target:
+                return "{}"
 
-        type_name = target.__class__.__name__ if show_types else ""
-        header = (
-            f"{prefix}{bullet}**{type_name}**:"
-            if show_types and show_title
-            else f"{prefix}{bullet}"
-        )
-        indent_step = 1 if compact else 2
-        item_prefix = prefix + ("  " if not compact else "")
+            if code_block:
+                json_str = json.dumps(target, indent=2)
+                return f"```{language or 'json'}\n{json_str}\n```"
 
-        items = [
-            f"{item_prefix}{bullet}{markdownify(item, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
-            for item in target
-        ]
-        return (
-            "\n".join([header] + items)
-            if show_types and show_title
-            else "\n".join(items)
-        )
+            type_name = target.__class__.__name__ if show_types else ""
+            header = (
+                f"{prefix}{bullet}**{type_name}**:"
+                if show_types and show_title
+                else f"{prefix}{bullet}"
+            )
+            indent_step = 1 if compact else 2
+            item_prefix = prefix + ("  " if not compact else "")
 
-    # Handle dictionaries
-    if isinstance(target, dict):
-        if not target:
-            return "{}"
+            items = [
+                f"{item_prefix}{bullet}{key}: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
+                for key, value in target.items()
+            ]
+            return (
+                "\n".join([header] + items)
+                if show_types and show_title
+                else "\n".join(items)
+            )
 
-        if code_block:
-            json_str = json.dumps(target, indent=2)
-            return f"```{language or 'json'}\n{json_str}\n```"
+        # Handle dataclasses
+        if is_dataclass(target):
+            type_name = target.__class__.__name__ if show_types else ""
+            header = (
+                f"{prefix}{bullet}**{type_name}**:"
+                if show_types and show_title
+                else f"{prefix}{bullet}"
+            )
+            indent_step = 1 if compact else 2
+            item_prefix = prefix + ("  " if not compact else "")
 
-        type_name = target.__class__.__name__ if show_types else ""
-        header = (
-            f"{prefix}{bullet}**{type_name}**:"
-            if show_types and show_title
-            else f"{prefix}{bullet}"
-        )
-        indent_step = 1 if compact else 2
-        item_prefix = prefix + ("  " if not compact else "")
+            fields_list = [
+                (f.name, getattr(target, f.name))
+                for f in dataclass_fields(target)
+            ]
+            items = [
+                f"{item_prefix}{bullet}{name}: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
+                for name, value in fields_list
+            ]
+            return (
+                "\n".join([header] + items)
+                if show_types and show_title
+                else "\n".join(items)
+            )
 
-        items = [
-            f"{item_prefix}{bullet}{key}: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
-            for key, value in target.items()
-        ]
-        return (
-            "\n".join([header] + items)
-            if show_types and show_title
-            else "\n".join(items)
-        )
+        return str(target)
 
-    # Handle dataclasses
-    if is_dataclass(target):
-        type_name = target.__class__.__name__ if show_types else ""
-        header = (
-            f"{prefix}{bullet}**{type_name}**:"
-            if show_types and show_title
-            else f"{prefix}{bullet}"
-        )
-        indent_step = 1 if compact else 2
-        item_prefix = prefix + ("  " if not compact else "")
-
-        fields_list = [
-            (f.name, getattr(target, f.name))
-            for f in dataclass_fields(target)
-        ]
-        items = [
-            f"{item_prefix}{bullet}{name}: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
-            for name, value in fields_list
-        ]
-        return (
-            "\n".join([header] + items)
-            if show_types and show_title
-            else "\n".join(items)
-        )
-
-    return str(target)
+    return _markdownify(
+        target,
+        indent,
+        code_block,
+        compact,
+        show_types,
+        show_title,
+        show_bullets,
+        show_docs,
+        bullet_style,
+        language,
+        show_header,
+        _visited,
+    )
