@@ -108,28 +108,59 @@ if TYPE_CHECKING:
         stream_passthrough,
     )
 
-__all__ = [
+__all__ = (
     # markdown
     "markdownify",
+    "format_docstring",
     # mock
     "ChatCompletion",
+    "AI",
+    "AsyncAI",
+    "mock_completion",
+    "mock_embedding",
+    "amock_completion",
+    "amock_embedding",
+    "AIError",
     # types
     "Message",
     "MessageRole",
     "MessageContent",
+    "MessageTextContent",
+    "MessageContentPart",
+    "MessageContentTextPart",
+    "MessageContentImagePart",
+    "MessageContentAudioPart",
     "Completion",
     "CompletionMessage",
     "CompletionChunk",
     "Tool",
     "Function",
     "FunctionCall",
+    "ToolCall",
+    "FunctionParameters",
     "EmbeddingResponse",
     "EmbeddingData",
+    "Embedding",
+    "Subscriptable",
+    "TopLogprob",
+    "TokenLogprob",
+    "ChoiceLogprobs",
+    "CompletionFunction",
+    "CompletionToolCall",
     # params
     "ModelParam",
     "BaseURLParam",
     "MessagesParam",
     "ChatModel",
+    "InstructorModeParam",
+    "FunctionCallParam",
+    "ToolChoiceParam",
+    "ModalitiesParam",
+    "PredictionParam",
+    "AudioParam",
+    "ReasoningEffortParam",
+    "ResponseFormatParam",
+    "StreamOptionsParam",
     "ClientParams",
     "CompletionParams",
     "EmbeddingParams",
@@ -137,19 +168,38 @@ __all__ = [
     "to_client_params",
     "to_completion_params",
     # utils
-    "add_audio_to_message",
+    "is_completion",
+    "is_stream",
+    "is_message",
+    "is_tool",
+    "has_system_prompt",
+    "has_tool_call",
+    "was_tool_called",
+    "run_tool",
+    "create_tool_message",
+    "create_image_message",
+    "create_input_audio_message",
+    "get_tool_calls",
+    "dump_stream_to_message",
+    "dump_stream_to_completion",
+    "normalize_messages",
+    "normalize_system_prompt",
     "create_field_mapping",
+    "extract_function_fields",
+    "convert_to_pydantic_model",
+    "convert_to_tools",
+    "convert_to_tool",
+    "create_literal_pydantic_model",
+    "stream_passthrough",
+    # aliases for backward compatibility
+    "add_audio_to_message",
     "create_selection_model",
     "get_content",
-    "get_tool_calls",
-    "normalize_messages",
     "passthrough",
-    "run_tool",
-    "was_tool_called",
-]
+)
 
 # Dynamic imports mapping
-_import_map: Dict[str, Tuple[str, str]] = {
+_dynamic_imports: Dict[str, Tuple[str, str]] = {
     # markdown
     "markdownify": (".markdown", "markdownify"),
     "format_docstring": (".markdown", "_format_docstring"),
@@ -209,27 +259,23 @@ _import_map: Dict[str, Tuple[str, str]] = {
     "to_client_params": (".params", "to_client_params"),
     "to_completion_params": (".params", "to_completion_params"),
     # utils
-    "add_audio_to_message": (".utils", "create_input_audio_message"),
-    "create_field_mapping": (".utils", "create_field_mapping"),
-    "create_selection_model": (".utils", "create_literal_pydantic_model"),
-    "get_content": (".utils", "get_content"),
-    "get_tool_calls": (".utils", "get_tool_calls"),
-    "normalize_messages": (".utils", "normalize_messages"),
-    "passthrough": (".utils", "stream_passthrough"),
-    "run_tool": (".utils", "run_tool"),
-    "was_tool_called": (".utils", "was_tool_called"),
     "is_completion": (".utils", "is_completion"),
     "is_stream": (".utils", "is_stream"),
     "is_message": (".utils", "is_message"),
     "is_tool": (".utils", "is_tool"),
     "has_system_prompt": (".utils", "has_system_prompt"),
     "has_tool_call": (".utils", "has_tool_call"),
+    "was_tool_called": (".utils", "was_tool_called"),
+    "run_tool": (".utils", "run_tool"),
     "create_tool_message": (".utils", "create_tool_message"),
     "create_image_message": (".utils", "create_image_message"),
     "create_input_audio_message": (".utils", "create_input_audio_message"),
+    "get_tool_calls": (".utils", "get_tool_calls"),
     "dump_stream_to_message": (".utils", "dump_stream_to_message"),
     "dump_stream_to_completion": (".utils", "dump_stream_to_completion"),
+    "normalize_messages": (".utils", "normalize_messages"),
     "normalize_system_prompt": (".utils", "normalize_system_prompt"),
+    "create_field_mapping": (".utils", "create_field_mapping"),
     "extract_function_fields": (".utils", "extract_function_fields"),
     "convert_to_pydantic_model": (".utils", "convert_to_pydantic_model"),
     "convert_to_tools": (".utils", "convert_to_tools"),
@@ -239,18 +285,28 @@ _import_map: Dict[str, Tuple[str, str]] = {
         "create_literal_pydantic_model",
     ),
     "stream_passthrough": (".utils", "stream_passthrough"),
+    # aliases for backward compatibility
+    "add_audio_to_message": (".utils", "create_input_audio_message"),
+    "create_selection_model": (".utils", "create_literal_pydantic_model"),
+    "get_content": (".utils", "get_content"),
+    "passthrough": (".utils", "stream_passthrough"),
 }
 
 
-# Handle dynamic imports
 def __getattr__(name: str) -> Any:
-    if name in _import_map:
-        module_path, attr_name = _import_map[name]
+    """Handle dynamic imports for module attributes."""
+    if name in _dynamic_imports:
+        module_path, attr_name = _dynamic_imports[name]
         module = import_module(module_path, __name__)
         return getattr(module, attr_name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-# Add items to the module's __all__ attribute
+def __dir__() -> 'list[str]':
+    """Return list of module attributes for auto-completion."""
+    return list(__all__)
+
+
+# Set module attribute for __getattr__ in Python 3.7+
 if sys.version_info >= (3, 7):
     __getattr__.__module__ = __name__
