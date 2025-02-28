@@ -9,8 +9,9 @@ as well as message formatting / tool conversion, etc.
 import logging
 import hashlib
 import json
+import inspect
 from cachetools import TTLCache
-from functools import wraps
+from functools import wraps, update_wrapper
 from dataclasses import is_dataclass
 from docstring_parser import parse
 from inspect import signature
@@ -43,7 +44,7 @@ from .types import (
     Tool,
 )
 
-__all__ = [
+__all__ = (
     "is_completion",
     "is_stream",
     "is_message",
@@ -70,7 +71,7 @@ __all__ = [
     "convert_to_tool",
     "create_literal_pydantic_model",
     "stream_passthrough",
-]
+)
 
 
 # ------------------------------------------------------------------------------
@@ -184,11 +185,14 @@ _TYPE_MAPPING = {
 
 
 def _cached(
-    key_fn: Callable[..., str],
-) -> Callable[[Callable[..., T]], Callable[..., T]]:
+    key_fn,
+):
     """More efficient caching decorator that only creates cache entries when needed."""
 
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
+        # Get the original signature
+        sig = inspect.signature(func)
+
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> T:
             try:
@@ -357,9 +361,6 @@ def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
 # ------------------------------------------------------------------------------
 
 
-@_cached(
-    lambda completion: _make_hashable(completion) if completion else ""
-)
 def is_completion(completion: Any) -> bool:
     """
     Checks if a given object is a valid chat completion.
@@ -367,25 +368,35 @@ def is_completion(completion: Any) -> bool:
     Supports both standard completion objects, as well as
     streamed responses.
     """
-    try:
-        # Handle passthrough wrapper (sync or async)
-        if hasattr(completion, "chunks"):
-            return bool(completion.chunks) and any(
-                _get_value(chunk, "choices") for chunk in completion.chunks
-            )
 
-        # Original logic
-        choices = _get_value(completion, "choices")
-        if not choices:
+    @_cached(
+        lambda completion: _make_hashable(completion) if completion else ""
+    )
+    def _is_completion(completion: Any) -> bool:
+        try:
+            # Handle passthrough wrapper (sync or async)
+            if hasattr(completion, "chunks"):
+                return bool(completion.chunks) and any(
+                    _get_value(chunk, "choices")
+                    for chunk in completion.chunks
+                )
+
+            # Original logic
+            choices = _get_value(completion, "choices")
+            if not choices:
+                return False
+            first_choice = choices[0]
+            return bool(
+                _get_value(first_choice, "message")
+                or _get_value(first_choice, "delta")
+            )
+        except Exception as e:
+            logger.debug(
+                f"Error checking if object is chat completion: {e}"
+            )
             return False
-        first_choice = choices[0]
-        return bool(
-            _get_value(first_choice, "message")
-            or _get_value(first_choice, "delta")
-        )
-    except Exception as e:
-        logger.debug(f"Error checking if object is chat completion: {e}")
-        return False
+
+    return _is_completion(completion)
 
 
 def is_stream(completion: Any) -> bool:
@@ -418,38 +429,41 @@ def is_stream(completion: Any) -> bool:
         return False
 
 
-@_cached(lambda message: _make_hashable(message) if message else "")
 def is_message(message: Any) -> bool:
     """Checks if a given object is a valid chat message."""
-    try:
-        if not isinstance(message, dict):
+
+    @_cached(lambda message: _make_hashable(message) if message else "")
+    def _is_message(message: Any) -> bool:
+        try:
+            if not isinstance(message, dict):
+                return False
+            allowed_roles = {
+                "assistant",
+                "user",
+                "system",
+                "tool",
+                "developer",
+            }
+            role = message.get("role")
+            # First check role validity
+            if role not in allowed_roles:
+                return False
+            # Check content and tool_call_id requirements
+            if role == "tool":
+                return bool(message.get("content")) and bool(
+                    message.get("tool_call_id")
+                )
+            elif role == "assistant" and "tool_calls" in message:
+                return True
+            # For all other roles, just need content
+            return message.get("content") is not None
+        except Exception as e:
+            logger.debug(f"Error validating message: {e}")
             return False
-        allowed_roles = {
-            "assistant",
-            "user",
-            "system",
-            "tool",
-            "developer",
-        }
-        role = message.get("role")
-        # First check role validity
-        if role not in allowed_roles:
-            return False
-        # Check content and tool_call_id requirements
-        if role == "tool":
-            return bool(message.get("content")) and bool(
-                message.get("tool_call_id")
-            )
-        elif role == "assistant" and "tool_calls" in message:
-            return True
-        # For all other roles, just need content
-        return message.get("content") is not None
-    except Exception as e:
-        logger.debug(f"Error validating message: {e}")
-        return False
+
+    return _is_message(message)
 
 
-@_cached(lambda tool: _make_hashable(tool) if tool else "")
 def is_tool(tool: Any) -> bool:
     """
     Checks if a given object is a valid tool in the OpenAI API.
@@ -460,20 +474,24 @@ def is_tool(tool: Any) -> bool:
     Returns:
         True if the object is a valid tool, False otherwise.
     """
-    try:
-        if not isinstance(tool, dict):
+
+    @_cached(lambda tool: _make_hashable(tool) if tool else "")
+    def _is_tool(tool: Any) -> bool:
+        try:
+            if not isinstance(tool, dict):
+                return False
+            if tool.get("type") != "function":
+                return False
+            if "function" not in tool:
+                return False
+            return True
+        except Exception as e:
+            logger.debug(f"Error validating tool: {e}")
             return False
-        if tool.get("type") != "function":
-            return False
-        if "function" not in tool:
-            return False
-        return True
-    except Exception as e:
-        logger.debug(f"Error validating tool: {e}")
-        return False
+
+    return _is_tool(tool)
 
 
-@_cached(lambda messages: _make_hashable(messages) if messages else "")
 def has_system_prompt(messages: List[Message]) -> bool:
     """
     Checks if the message thread contains at least one system prompt.
@@ -485,26 +503,28 @@ def has_system_prompt(messages: List[Message]) -> bool:
         True if the message thread contains at least one system prompt,
         False otherwise.
     """
-    try:
-        if not isinstance(messages, list):
-            raise TypeError("Messages must be a list")
-        for msg in messages:
-            if not isinstance(msg, dict):
-                raise TypeError("Each message must be a dict")
-            if (
-                msg.get("role") == "system"
-                and msg.get("content") is not None
-            ):
-                return True
-        return False
-    except Exception as e:
-        logger.debug(f"Error checking for system prompt: {e}")
-        raise
+
+    @_cached(lambda messages: _make_hashable(messages) if messages else "")
+    def _has_system_prompt(messages: Any) -> bool:
+        try:
+            if not isinstance(messages, list):
+                raise TypeError("Messages must be a list")
+            for msg in messages:
+                if not isinstance(msg, dict):
+                    raise TypeError("Each message must be a dict")
+                if (
+                    msg.get("role") == "system"
+                    and msg.get("content") is not None
+                ):
+                    return True
+            return False
+        except Exception as e:
+            logger.debug(f"Error checking for system prompt: {e}")
+            raise
+
+    return _has_system_prompt(messages)
 
 
-@_cached(
-    lambda completion: _make_hashable(completion) if completion else ""
-)
 def has_tool_call(completion: Any) -> bool:
     """
     Checks if a given object contains a tool call.
@@ -515,21 +535,28 @@ def has_tool_call(completion: Any) -> bool:
     Returns:
         True if the object contains a tool call, False otherwise.
     """
-    try:
-        if not is_completion(completion):
+
+    @_cached(
+        lambda completion: _make_hashable(completion) if completion else ""
+    )
+    def _has_tool_call(completion: Any) -> bool:
+        try:
+            if not is_completion(completion):
+                return False
+
+            choices = _get_value(completion, "choices", [])
+            if not choices:
+                return False
+
+            first_choice = choices[0]
+            message = _get_value(first_choice, "message", {})
+            tool_calls = _get_value(message, "tool_calls", [])
+            return bool(tool_calls)
+        except Exception as e:
+            logger.debug(f"Error checking for tool call: {e}")
             return False
 
-        choices = _get_value(completion, "choices", [])
-        if not choices:
-            return False
-
-        first_choice = choices[0]
-        message = _get_value(first_choice, "message", {})
-        tool_calls = _get_value(message, "tool_calls", [])
-        return bool(tool_calls)
-    except Exception as e:
-        logger.debug(f"Error checking for tool call: {e}")
-        return False
+    return _has_tool_call(completion)
 
 
 # ------------------------------------------------------------------------------
@@ -903,7 +930,6 @@ def create_tool_message(completion: Any, output: Any) -> Message:
         raise
 
 
-@_cached(lambda tool: _make_hashable(tool) if tool else "")
 def convert_to_tool(
     tool: Union[BaseModel, Callable, Dict[str, Any]],
 ) -> Tool:
@@ -928,128 +954,150 @@ def convert_to_tool(
     from pydantic import BaseModel
     from typing import get_args
 
-    try:
-        if (
-            isinstance(tool, dict)
-            and "type" in tool
-            and "function" in tool
-        ):
-            return tool
+    @_cached(lambda tool: _make_hashable(tool) if tool else "")
+    def _convert_to_tool(tool: Any) -> Tool:
+        try:
+            if (
+                isinstance(tool, dict)
+                and "type" in tool
+                and "function" in tool
+            ):
+                return tool
 
-        if isinstance(tool, type) and issubclass(tool, BaseModel):
-            schema = tool.model_json_schema()
-            if "properties" in schema:
-                for prop_name, prop_schema in schema["properties"].items():
-                    if "enum" in prop_schema:
-                        # Handle enum fields as literals
-                        prop_schema["enum"] = list(prop_schema["enum"])
-                        prop_schema["title"] = prop_name.capitalize()
-                        prop_schema["type"] = "string"
-                    elif is_literal_type(prop_schema.get("type")):
-                        prop_schema["enum"] = list(
-                            get_args(prop_schema["type"])
-                        )
-                        prop_schema["title"] = prop_name.capitalize()
-                        prop_schema["type"] = "string"
-                    else:
-                        prop_schema["title"] = prop_name.capitalize()
-                schema["required"] = list(schema["properties"].keys())
-                schema["additionalProperties"] = False
-                schema["title"] = tool.__name__
-            return {
-                "type": "function",
-                "function": {
-                    "name": tool.__name__,
-                    "parameters": schema,
-                    "strict": True,
-                },
-            }
-
-        if callable(tool):
-            import inspect
-
-            sig = inspect.signature(tool)
-            properties = {}
-            required = []
-
-            # Parse docstring using docstring_parser instead of inspect
-            docstring = tool.__doc__
-            doc_info = None
-            if docstring:
-                doc_info = parse(docstring)
-
-            for name, param in sig.parameters.items():
-                if param.kind in (param.VAR_POSITIONAL, param.VAR_KEYWORD):
-                    continue
-
-                param_schema = {
-                    "type": "string",
-                    "title": name.capitalize(),
+            if isinstance(tool, type) and issubclass(tool, BaseModel):
+                schema = tool.model_json_schema()
+                if "properties" in schema:
+                    for prop_name, prop_schema in schema[
+                        "properties"
+                    ].items():
+                        if "enum" in prop_schema:
+                            # Handle enum fields as literals
+                            prop_schema["enum"] = list(prop_schema["enum"])
+                            prop_schema["title"] = prop_name.capitalize()
+                            prop_schema["type"] = "string"
+                        elif is_literal_type(prop_schema.get("type")):
+                            prop_schema["enum"] = list(
+                                get_args(prop_schema["type"])
+                            )
+                            prop_schema["title"] = prop_name.capitalize()
+                            prop_schema["type"] = "string"
+                        else:
+                            prop_schema["title"] = prop_name.capitalize()
+                    schema["required"] = list(schema["properties"].keys())
+                    schema["additionalProperties"] = False
+                    schema["title"] = tool.__name__
+                return {
+                    "type": "function",
+                    "function": {
+                        "name": tool.__name__,
+                        "parameters": schema,
+                        "strict": True,
+                    },
                 }
 
-                # Add description from docstring if available
-                if doc_info and doc_info.params:
-                    for doc_param in doc_info.params:
-                        if doc_param.arg_name == name:
-                            if doc_param.description:
-                                param_schema["description"] = doc_param.description
-                            # Check if parameter is required from docstring
-                            if doc_param.description and "required" in doc_param.description.lower():
-                                if name not in required:
-                                    required.append(name)
+            if callable(tool):
+                import inspect
 
-                if param.annotation != inspect.Parameter.empty:
-                    if is_literal_type(param.annotation):
-                        param_schema["enum"] = list(
-                            get_args(param.annotation)
+                sig = inspect.signature(tool)
+                properties = {}
+                required = []
+
+                # Parse docstring using docstring_parser instead of inspect
+                docstring = tool.__doc__
+                doc_info = None
+                if docstring:
+                    doc_info = parse(docstring)
+
+                for name, param in sig.parameters.items():
+                    if param.kind in (
+                        param.VAR_POSITIONAL,
+                        param.VAR_KEYWORD,
+                    ):
+                        continue
+
+                    param_schema = {
+                        "type": "string",
+                        "title": name.capitalize(),
+                    }
+
+                    # Add description from docstring if available
+                    if doc_info and doc_info.params:
+                        for doc_param in doc_info.params:
+                            if doc_param.arg_name == name:
+                                if doc_param.description:
+                                    param_schema["description"] = (
+                                        doc_param.description
+                                    )
+                                # Check if parameter is required from docstring
+                                if (
+                                    doc_param.description
+                                    and "required"
+                                    in doc_param.description.lower()
+                                ):
+                                    if name not in required:
+                                        required.append(name)
+
+                    if param.annotation != inspect.Parameter.empty:
+                        if is_literal_type(param.annotation):
+                            param_schema["enum"] = list(
+                                get_args(param.annotation)
+                            )
+                        else:
+                            if param.annotation == str:
+                                param_schema["type"] = "string"
+                            elif param.annotation == int:
+                                param_schema["type"] = "integer"
+                            elif param.annotation == float:
+                                param_schema["type"] = "number"
+                            elif param.annotation == bool:
+                                param_schema["type"] = "boolean"
+                            elif param.annotation == list:
+                                param_schema["type"] = "array"
+                            elif param.annotation == dict:
+                                param_schema["type"] = "object"
+
+                    properties[name] = param_schema
+                    if (
+                        param.default == inspect.Parameter.empty
+                        and name not in required
+                    ):
+                        required.append(name)
+
+                parameters_schema = {
+                    "type": "object",
+                    "properties": properties,
+                    "required": required,
+                    "title": tool.__name__,
+                    "additionalProperties": False,
+                }
+
+                # Add function description from docstring
+                function_schema = {
+                    "name": tool.__name__,
+                    "strict": True,
+                    "parameters": parameters_schema,
+                }
+
+                if doc_info and doc_info.short_description:
+                    function_schema["description"] = (
+                        doc_info.short_description
+                    )
+                    if doc_info.long_description:
+                        function_schema["description"] += (
+                            "\n\n" + doc_info.long_description
                         )
-                    else:
-                        if param.annotation == str:
-                            param_schema["type"] = "string"
-                        elif param.annotation == int:
-                            param_schema["type"] = "integer"
-                        elif param.annotation == float:
-                            param_schema["type"] = "number"
-                        elif param.annotation == bool:
-                            param_schema["type"] = "boolean"
-                        elif param.annotation == list:
-                            param_schema["type"] = "array"
-                        elif param.annotation == dict:
-                            param_schema["type"] = "object"
 
-                properties[name] = param_schema
-                if param.default == inspect.Parameter.empty and name not in required:
-                    required.append(name)
+                return {
+                    "type": "function",
+                    "function": function_schema,
+                }
 
-            parameters_schema = {
-                "type": "object",
-                "properties": properties,
-                "required": required,
-                "title": tool.__name__,
-                "additionalProperties": False,
-            }
+            raise TypeError(f"Cannot convert {type(tool)} to tool")
+        except Exception as e:
+            logger.debug(f"Error converting to tool: {e}")
+            raise
 
-            # Add function description from docstring
-            function_schema = {
-                "name": tool.__name__,
-                "strict": True,
-                "parameters": parameters_schema,
-            }
-            
-            if doc_info and doc_info.short_description:
-                function_schema["description"] = doc_info.short_description
-                if doc_info.long_description:
-                    function_schema["description"] += "\n\n" + doc_info.long_description
-
-            return {
-                "type": "function",
-                "function": function_schema,
-            }
-
-        raise TypeError(f"Cannot convert {type(tool)} to tool")
-    except Exception as e:
-        logger.debug(f"Error converting to tool: {e}")
-        raise
+    return _convert_to_tool(tool)
 
 
 def convert_to_tools(
@@ -1105,35 +1153,34 @@ def convert_to_tools(
 # ------------------------------------------------------------------------------
 
 
-@_cached(lambda messages: _make_hashable(messages) if messages else "")
 def normalize_messages(messages: Any) -> List[Message]:
     """Formats the input into a list of chat completion messages."""
-    try:
-        if isinstance(messages, str):
-            return [{"role": "user", "content": messages}]
-        if not isinstance(messages, list):
-            messages = [messages]
 
-        normalized = []
-        for message in messages:
-            if isinstance(message, dict):
-                # Create a new dict to avoid modifying the original
-                normalized.append({**message})
-            elif hasattr(message, "model_dump"):
-                normalized.append(message.model_dump())
-            else:
-                raise ValueError(f"Invalid message format: {message}")
-        return normalized
-    except Exception as e:
-        logger.debug(f"Error normalizing messages: {e}")
-        raise
+    @_cached(lambda messages: _make_hashable(messages) if messages else "")
+    def _normalize_messages(messages: Any) -> List[Message]:
+        try:
+            if isinstance(messages, str):
+                return [{"role": "user", "content": messages}]
+            if not isinstance(messages, list):
+                messages = [messages]
+
+            normalized = []
+            for message in messages:
+                if isinstance(message, dict):
+                    # Create a new dict to avoid modifying the original
+                    normalized.append({**message})
+                elif hasattr(message, "model_dump"):
+                    normalized.append(message.model_dump())
+                else:
+                    raise ValueError(f"Invalid message format: {message}")
+            return normalized
+        except Exception as e:
+            logger.debug(f"Error normalizing messages: {e}")
+            raise
+
+    return _normalize_messages(messages)
 
 
-@_cached(
-    lambda messages, system_prompt=None, blank=False: _make_hashable(
-        (messages, system_prompt, blank)
-    )
-)
 def normalize_system_prompt(
     messages: List[Message],
     system_prompt: Optional[Union[str, Dict[str, Any]]] = None,
@@ -1150,44 +1197,62 @@ def normalize_system_prompt(
     Returns:
         A normalized list of messages.
     """
-    try:
-        system_messages = [
-            msg for msg in messages if msg.get("role") == "system"
-        ]
-        other_messages = [
-            msg for msg in messages if msg.get("role") != "system"
-        ]
 
-        if system_prompt:
-            if isinstance(system_prompt, str):
-                new_system = {"role": "system", "content": system_prompt}
-            elif isinstance(system_prompt, dict):
-                new_system = {**system_prompt, "role": "system"}
-                if "content" not in new_system:
-                    raise ValueError(
-                        "System prompt dict must contain 'content' field"
-                    )
-            else:
-                raise ValueError("System prompt must be string or dict")
-            system_messages.insert(0, new_system)
-
-        if not system_messages and blank:
-            system_messages = [{"role": "system", "content": ""}]
-        elif not system_messages:
-            return messages
-
-        if len(system_messages) > 1:
-            combined_content = "\n".join(
-                msg["content"] for msg in system_messages
-            )
+    @_cached(
+        lambda messages, system_prompt=None, blank=False: _make_hashable(
+            (messages, system_prompt, blank)
+        )
+    )
+    def _normalize_system_prompt(
+        messages: Any,
+        system_prompt: Optional[Union[str, Dict[str, Any]]] = None,
+        blank: bool = False,
+    ) -> List[Message]:
+        try:
             system_messages = [
-                {"role": "system", "content": combined_content}
+                msg for msg in messages if msg.get("role") == "system"
+            ]
+            other_messages = [
+                msg for msg in messages if msg.get("role") != "system"
             ]
 
-        return system_messages + other_messages
-    except Exception as e:
-        logger.debug(f"Error normalizing system prompt: {e}")
-        raise
+            if system_prompt:
+                if isinstance(system_prompt, str):
+                    new_system = {
+                        "role": "system",
+                        "content": system_prompt,
+                    }
+                elif isinstance(system_prompt, dict):
+                    new_system = {**system_prompt, "role": "system"}
+                    if "content" not in new_system:
+                        raise ValueError(
+                            "System prompt dict must contain 'content' field"
+                        )
+                else:
+                    raise ValueError(
+                        "System prompt must be string or dict"
+                    )
+                system_messages.insert(0, new_system)
+
+            if not system_messages and blank:
+                system_messages = [{"role": "system", "content": ""}]
+            elif not system_messages:
+                return messages
+
+            if len(system_messages) > 1:
+                combined_content = "\n".join(
+                    msg["content"] for msg in system_messages
+                )
+                system_messages = [
+                    {"role": "system", "content": combined_content}
+                ]
+
+            return system_messages + other_messages
+        except Exception as e:
+            logger.debug(f"Error normalizing system prompt: {e}")
+            raise
+
+    return _normalize_system_prompt(messages, system_prompt, blank)
 
 
 # these are for using the 'contentpart' types specifically
@@ -1330,12 +1395,6 @@ def create_input_audio_message(
 # ------------------------------------------------------------------------------
 
 
-@_cached(
-    lambda type_hint,
-    index=None,
-    description=None,
-    default=...: _make_hashable((type_hint, index, description, default))
-)
 def create_field_mapping(
     type_hint: Type,
     index: Optional[int] = None,
@@ -1354,23 +1413,41 @@ def create_field_mapping(
     Returns:
         Dictionary mapping field name to (type, Field) tuple
     """
-    try:
-        base_name, _ = _TYPE_MAPPING.get(type_hint, ("value", type_hint))
-        field_name = (
-            f"{base_name}_{index}" if index is not None else base_name
+
+    @_cached(
+        lambda type_hint,
+        index=None,
+        description=None,
+        default=...: _make_hashable(
+            (type_hint, index, description, default)
         )
-        return {
-            field_name: (
-                type_hint,
-                Field(default=default, description=description),
+    )
+    def _create_field_mapping(
+        type_hint: Type,
+        index: Optional[int] = None,
+        description: Optional[str] = None,
+        default: Any = ...,
+    ) -> Dict[str, Any]:
+        try:
+            base_name, _ = _TYPE_MAPPING.get(
+                type_hint, ("value", type_hint)
             )
-        }
-    except Exception as e:
-        logger.debug(f"Error creating field mapping: {e}")
-        raise
+            field_name = (
+                f"{base_name}_{index}" if index is not None else base_name
+            )
+            return {
+                field_name: (
+                    type_hint,
+                    Field(default=default, description=description),
+                )
+            }
+        except Exception as e:
+            logger.debug(f"Error creating field mapping: {e}")
+            raise
+
+    return _create_field_mapping(type_hint, index, description, default)
 
 
-@_cached(lambda func: _make_hashable(func))
 def extract_function_fields(func: Callable) -> Dict[str, Any]:
     """
     Extracts fields from a function's signature and docstring.
@@ -1381,35 +1458,39 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
     Returns:
         Dictionary of field definitions
     """
-    try:
 
-        hints = get_type_hints(func)
-        sig = signature(func)
-        docstring = parse(func.__doc__ or "")
-        fields = {}
+    @_cached(lambda func: _make_hashable(func))
+    def _extract_function_fields(func: Callable) -> Dict[str, Any]:
+        try:
+            hints = get_type_hints(func)
+            sig = signature(func)
+            docstring = parse(func.__doc__ or "")
+            fields = {}
 
-        for name, param in sig.parameters.items():
-            field_type = hints.get(name, Any)
-            default = (
-                ... if param.default is param.empty else param.default
-            )
-            description = next(
-                (
-                    p.description
-                    for p in docstring.params
-                    if p.arg_name == name
-                ),
-                "",
-            )
-            fields[name] = (
-                field_type,
-                Field(default=default, description=description),
-            )
+            for name, param in sig.parameters.items():
+                field_type = hints.get(name, Any)
+                default = (
+                    ... if param.default is param.empty else param.default
+                )
+                description = next(
+                    (
+                        p.description
+                        for p in docstring.params
+                        if p.arg_name == name
+                    ),
+                    "",
+                )
+                fields[name] = (
+                    field_type,
+                    Field(default=default, description=description),
+                )
 
-        return fields
-    except Exception as e:
-        logger.debug(f"Error extracting function fields: {e}")
-        raise
+            return fields
+        except Exception as e:
+            logger.debug(f"Error extracting function fields: {e}")
+            raise
+
+    return _extract_function_fields(func)
 
 
 # ----------------------------------------------------------------------
@@ -1417,13 +1498,6 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 # ----------------------------------------------------------------------
 
 
-@_cached(
-    lambda target,
-    init=False,
-    name=None,
-    description=None,
-    default=...: _make_hashable((target, init, name, description, default))
-)
 def convert_to_pydantic_model(
     target: Union[
         Type, Sequence[Type], Dict[str, Any], BaseModel, Callable
@@ -1446,141 +1520,180 @@ def convert_to_pydantic_model(
     Returns:
         A pydantic model class or instance if init=True
     """
-    
-    model_name = name or "GeneratedModel"
 
-    # Handle existing Pydantic models
-    if isinstance(target, type) and issubclass(target, BaseModel):
-        return target
-
-    # Handle dataclasses
-    if is_dataclass(target):
-        hints = get_type_hints(target)
-        fields = {}
-        
-        # Parse docstring if available
-        docstring = target.__doc__
-        doc_info = None
-        if docstring:
-            doc_info = parse(docstring)
-            
-        for field_name, hint in hints.items():
-            description = ""
-            if doc_info and doc_info.params:
-                description = next(
-                    (p.description for p in doc_info.params if p.arg_name == field_name),
-                    ""
-                )
-            
-            fields[field_name] = (
-                hint,
-                Field(
-                    default=getattr(target, field_name) if init else ...,
-                    description=description
-                ),
-            )
-            
-        model_class = create_model(
-            model_name, 
-            __doc__=description or (doc_info.short_description if doc_info else None), 
-            **fields
+    @_cached(
+        lambda target,
+        init=False,
+        name=None,
+        description=None,
+        default=...: _make_hashable(
+            (target, init, name, description, default)
         )
-        
-        if init and isinstance(target, type):
-            return model_class
-        elif init:
-            return model_class(
-                **{field_name: getattr(target, field_name) for field_name in hints}
-            )
-        return model_class
+    )
+    def _convert_to_pydantic_model(
+        target: Union[
+            Type, Sequence[Type], Dict[str, Any], BaseModel, Callable
+        ],
+        init: bool = False,
+        name: Optional[str] = None,
+        description: Optional[str] = None,
+        default: Any = ...,
+    ) -> Union[Type[BaseModel], BaseModel]:
+        model_name = name or "GeneratedModel"
 
-    # Handle callable (functions)
-    if callable(target) and not isinstance(target, type):
-        fields = extract_function_fields(target)
-        
-        # Extract just the short description from the docstring
-        doc_info = parse(target.__doc__ or "")
-        clean_description = doc_info.short_description if doc_info else None
-        
-        return create_model(
-            name or target.__name__,
-            __doc__=description or clean_description,
-            **fields,
-        )
+        # Handle existing Pydantic models
+        if isinstance(target, type) and issubclass(target, BaseModel):
+            return target
 
-    # Handle single types
-    if isinstance(target, type):
-        field_mapping = create_field_mapping(
-            target, description=description, default=default
-        )
-        return create_model(
-            model_name, __doc__=description, **field_mapping
-        )
-
-    # Handle sequences of types
-    if isinstance(target, (list, tuple)):
-        field_mapping = {}
-        for i, type_hint in enumerate(target):
-            if not isinstance(type_hint, type):
-                raise ValueError("Sequence elements must be types")
-            field_mapping.update(create_field_mapping(type_hint, index=i))
-        return create_model(
-            model_name, __doc__=description, **field_mapping
-        )
-
-    # Handle dictionaries
-    if isinstance(target, dict):
-        if init:
-            model_class = create_model(
-                model_name,
-                __doc__=description,
-                **{
-                    k: (type(v), Field(default=v))
-                    for k, v in target.items()
-                },
-            )
-            return model_class(**target)
-        return create_model(model_name, __doc__=description, **target)
-
-    # Handle model instances
-    if isinstance(target, BaseModel):
-        # Parse docstring from the model's class
-        docstring = target.__class__.__doc__
-        doc_info = None
-        if docstring:
-            doc_info = parse(docstring)
-            
-        if init:
+        # Handle dataclasses
+        if is_dataclass(target):
+            hints = get_type_hints(target)
             fields = {}
-            for k, v in target.model_dump().items():
+
+            # Parse docstring if available
+            docstring = target.__doc__
+            doc_info = None
+            if docstring:
+                doc_info = parse(docstring)
+
+            for field_name, hint in hints.items():
                 description = ""
                 if doc_info and doc_info.params:
                     description = next(
-                        (p.description for p in doc_info.params if p.arg_name == k),
-                        ""
+                        (
+                            p.description
+                            for p in doc_info.params
+                            if p.arg_name == field_name
+                        ),
+                        "",
                     )
-                fields[k] = (type(v), Field(default=v, description=description))
-                
+
+                fields[field_name] = (
+                    hint,
+                    Field(
+                        default=getattr(target, field_name)
+                        if init
+                        else ...,
+                        description=description,
+                    ),
+                )
+
             model_class = create_model(
                 model_name,
-                __doc__=description or (doc_info.short_description if doc_info else None),
-                **fields
+                __doc__=description
+                or (doc_info.short_description if doc_info else None),
+                **fields,
             )
-            return model_class(**target.model_dump())
-        return target.__class__
 
-    raise ValueError(
-        f"Unsupported target type: {type(target)}. Must be a type, "
-        "sequence of types, dict, dataclass, function, or Pydantic model."
+            if init and isinstance(target, type):
+                return model_class
+            elif init:
+                return model_class(
+                    **{
+                        field_name: getattr(target, field_name)
+                        for field_name in hints
+                    }
+                )
+            return model_class
+
+        # Handle callable (functions)
+        if callable(target) and not isinstance(target, type):
+            fields = extract_function_fields(target)
+
+            # Extract just the short description from the docstring
+            doc_info = parse(target.__doc__ or "")
+            clean_description = (
+                doc_info.short_description if doc_info else None
+            )
+
+            return create_model(
+                name or target.__name__,
+                __doc__=description or clean_description,
+                **fields,
+            )
+
+        # Handle single types
+        if isinstance(target, type):
+            field_mapping = create_field_mapping(
+                target, description=description, default=default
+            )
+            return create_model(
+                model_name, __doc__=description, **field_mapping
+            )
+
+        # Handle sequences of types
+        if isinstance(target, (list, tuple)):
+            field_mapping = {}
+            for i, type_hint in enumerate(target):
+                if not isinstance(type_hint, type):
+                    raise ValueError("Sequence elements must be types")
+                field_mapping.update(
+                    create_field_mapping(type_hint, index=i)
+                )
+            return create_model(
+                model_name, __doc__=description, **field_mapping
+            )
+
+        # Handle dictionaries
+        if isinstance(target, dict):
+            if init:
+                model_class = create_model(
+                    model_name,
+                    __doc__=description,
+                    **{
+                        k: (type(v), Field(default=v))
+                        for k, v in target.items()
+                    },
+                )
+                return model_class(**target)
+            return create_model(model_name, __doc__=description, **target)
+
+        # Handle model instances
+        if isinstance(target, BaseModel):
+            # Parse docstring from the model's class
+            docstring = target.__class__.__doc__
+            doc_info = None
+            if docstring:
+                doc_info = parse(docstring)
+
+            if init:
+                fields = {}
+                for k, v in target.model_dump().items():
+                    description = ""
+                    if doc_info and doc_info.params:
+                        description = next(
+                            (
+                                p.description
+                                for p in doc_info.params
+                                if p.arg_name == k
+                            ),
+                            "",
+                        )
+                    fields[k] = (
+                        type(v),
+                        Field(default=v, description=description),
+                    )
+
+                model_class = create_model(
+                    model_name,
+                    __doc__=description
+                    or (doc_info.short_description if doc_info else None),
+                    **fields,
+                )
+                return model_class(**target.model_dump())
+            return target.__class__
+
+        raise ValueError(
+            f"Unsupported target type: {type(target)}. Must be a type, "
+            "sequence of types, dict, dataclass, function, or Pydantic model."
+        )
+
+    return _convert_to_pydantic_model(
+        target, init, name, description, default
     )
 
 
 # this one is kinda super specific
-@_cached(
-    lambda target, name=None: _make_hashable((target, name))
-    if target
-    else ""
-)
 def create_literal_pydantic_model(
     target: Union[Type, List[str]],
     name: Optional[str] = "Selection",
@@ -1596,24 +1709,40 @@ def create_literal_pydantic_model(
     Returns:
         A Pydantic model class with a single 'value' field constrained to the allowed values
     """
-    if isinstance(target, list):
-        # For list of strings, create a Literal type with those values
-        literal_type = Literal[tuple(str(v) for v in target)]  # type: ignore
-    elif getattr(target, "__origin__", None) is Literal:
-        # For existing Literal types, use directly
-        literal_type = target
-    else:
-        raise ValueError(
-            "Target must be either a Literal type or a list of strings"
+
+    @_cached(
+        lambda target, name=None: _make_hashable((target, name))
+        if target
+        else ""
+    )
+    def _create_literal_pydantic_model(
+        target: Union[Type, List[str]],
+        name: Optional[str] = "Selection",
+        description: Optional[str] = None,
+        default: Any = ...,
+    ) -> Type[BaseModel]:
+        if isinstance(target, list):
+            # For list of strings, create a Literal type with those values
+            literal_type = Literal[tuple(str(v) for v in target)]  # type: ignore
+        elif getattr(target, "__origin__", None) is Literal:
+            # For existing Literal types, use directly
+            literal_type = target
+        else:
+            raise ValueError(
+                "Target must be either a Literal type or a list of strings"
+            )
+
+        return create_model(
+            name or "Selection",
+            value=(
+                literal_type,
+                Field(
+                    default=default,
+                    description=description or "The selected value",
+                ),
+            ),
         )
 
-    return create_model(
-        name or "Selection",
-        value=(
-            literal_type,
-            Field(
-                default=default,
-                description=description or "The selected value",
-            ),
-        ),
+    return _create_literal_pydantic_model(
+        target, name, description, default
     )
