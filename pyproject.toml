@@ -4,9 +4,9 @@
 # Base Metadata
 # ------------------------------------------------------------------------
 
-# chatspec
-name = "chatspec"
-version = "0.0.17"
+# prompted
+name = "prompted"
+version = "0.0.3"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [
