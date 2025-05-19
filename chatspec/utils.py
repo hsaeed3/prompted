@@ -71,6 +71,8 @@ __all__ = (
     "convert_to_tool",
     "create_literal_pydantic_model",
     "stream_passthrough",
+    "create_selection_model",
+    "create_bool_model",
 )
 
 
@@ -1496,6 +1498,113 @@ def extract_function_fields(func: Callable) -> Dict[str, Any]:
 # ----------------------------------------------------------------------
 # Model Creation
 # ----------------------------------------------------------------------
+
+
+def create_selection_model(
+    name: str = "Selection",
+    description: str | None = None,
+    fields: List[str] = [],
+) -> Type[BaseModel]:
+    """
+    Creates a Pydantic model for making a selection from a list of string options.
+
+    The model will have a single field named `selection`. The type of this field
+    will be `Literal[*fields]`, meaning its value must be one of the strings
+    provided in the `fields` list.
+
+    Args:
+        name: The name for the created Pydantic model. Defaults to "Selection".
+        description: An optional description for the model (becomes its docstring).
+        fields: A list of strings representing the allowed choices for the selection.
+                This list cannot be empty.
+
+    Returns:
+        A new Pydantic BaseModel class with a 'selection' field.
+
+    Raises:
+        ValueError: If the `fields` list is empty, as Literal requires at least one option.
+    """
+    if not fields:
+        raise ValueError(
+            "`fields` list cannot be empty for `create_selection_model` "
+            "as it defines the possible selections for the Literal type."
+        )
+
+    # Create the Literal type from the list of field strings.
+    # We can't use unpacking syntax directly with Literal, so we need to handle it differently
+    if len(fields) == 1:
+        selection_type = Literal[fields[0]]
+    else:
+        # For multiple fields, we need to use eval to create the Literal type
+        # This is because Literal needs to be constructed with the actual string values
+        # as separate arguments, not as a list
+        literal_str = f"Literal[{', '.join(repr(f) for f in fields)}]"
+        selection_type = eval(literal_str)
+
+    # Define the field for the model. It's required (...).
+    model_fields_definitions = {
+        "selection": (
+            selection_type,
+            Field(
+                ...,
+                description="The selected value from the available options.",
+            ),
+        )
+    }
+
+    # Determine the docstring for the created model
+    model_docstring = description
+    if model_docstring is None:
+        if fields:
+            model_docstring = f"A model for selecting one option from: {', '.join(fields)}."
+        else:  # Should not be reached due to the check above, but for completeness
+            model_docstring = "A selection model."
+
+    NewModel: Type[BaseModel] = create_model(
+        name,
+        __base__=BaseModel,
+        __doc__=model_docstring,
+        **model_fields_definitions,
+    )
+    return NewModel
+
+
+def create_bool_model(
+    name: str = "Confirmation",
+    description: str | None = None,
+) -> Type[BaseModel]:
+    """
+    Creates a Pydantic model for boolean confirmation/response.
+
+    The model will have a single field named `confirmed`. The type of this field
+    will be `bool`, meaning its value must be either True or False.
+
+    Args:
+        name: The name for the created Pydantic model. Defaults to "Confirmation".
+        description: An optional description for the model (becomes its docstring).
+
+    Returns:
+        A new Pydantic BaseModel class with a 'confirmed' field.
+    """
+    # Define the field for the model. It's required (...).
+    model_fields_definitions = {
+        "confirmed": (
+            bool,
+            Field(..., description="The boolean confirmation value."),
+        )
+    }
+
+    # Determine the docstring for the created model
+    model_docstring = description
+    if model_docstring is None:
+        model_docstring = "A model for boolean confirmation."
+
+    NewModel: Type[BaseModel] = create_model(
+        name,
+        __base__=BaseModel,
+        __doc__=model_docstring,
+        **model_fields_definitions,
+    )
 
 
 def convert_to_pydantic_model(
