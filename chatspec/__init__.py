@@ -21,6 +21,9 @@ import sys
 from importlib import import_module
 from typing import Any, Dict, Tuple, TYPE_CHECKING
 
+from .logger import setup_logging as _setup_logging
+_setup_logging()
+
 if TYPE_CHECKING:
     # Import everything here for type checking and IDE support
     from .markdown import (

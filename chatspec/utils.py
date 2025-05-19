@@ -79,9 +79,7 @@ __all__ = (
 # ------------------------------------------------------------------------------
 # Configuration && Logging
 #
-# i was debating not keeping a logger in this lib, but i think its useful
-# for debugging
-logger = logging.getLogger("chatspec")
+logger = logging.getLogger(__name__)
 #
 # cache
 _CACHE = TTLCache(maxsize=1000, ttl=3600)
