@@ -1,6 +1,6 @@
 import pytest
 from pydantic import BaseModel
-from chatspec.markdown import markdownify
+from chatspec._utils.markdown import markdownify
 
 
 class ExampleModel(BaseModel):

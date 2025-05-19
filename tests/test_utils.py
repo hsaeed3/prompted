@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Literal
 
 import chatspec
-from chatspec.utils import (
+from chatspec._utils.fn import (
     is_completion,
     is_stream,
     is_message,

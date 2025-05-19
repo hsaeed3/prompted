@@ -21,19 +21,19 @@ class RichMarkupFilter(logging.Filter):
             record.msg = f"[white]{record.msg}[/white]"
         elif record.levelno >= logging.DEBUG:
             record.msg = f"[italic dim]{record.msg}[/italic dim]"
-        return True # Always return True to indicate the record should be processed
-    
+        return True  # Always return True to indicate the record should be processed
+
 
 def setup_logging():
     logger = logging.getLogger("chatspec")
 
     handler = RichHandler(
         level=logging.DEBUG,  # Set the handler level to DEBUG for testing all levels in __main__ block
-        console=console,      # Use the console instance
-        rich_tracebacks=True, # Enable rich tracebacks for exceptions
-        show_time=False,      # Hide the time column
-        show_path=False,      # Hide the path column
-        markup=True           # Essential to interpret the rich markup added by the filter
+        console=console,  # Use the console instance
+        rich_tracebacks=True,  # Enable rich tracebacks for exceptions
+        show_time=False,  # Hide the time column
+        show_path=False,  # Hide the path column
+        markup=True,  # Essential to interpret the rich markup added by the filter
     )
     formatter = logging.Formatter(
         "| [bold]{name}[/bold] - {message}", style="{"

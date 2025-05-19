@@ -1,5 +1,5 @@
 """
-## 💭 chatspec.utils
+💬 chatspec.utils.fn
 
 Contains the utils and helpers within the chatspec library.
 These range from helpers for instance checking response/input types,
@@ -33,7 +33,7 @@ from typing import (
     get_type_hints,
     Iterator,
 )
-from .types import (
+from ..types import (
     Completion,
     CompletionChunk,
     CompletionMessage,
@@ -651,7 +651,7 @@ def dump_stream_to_completion(stream: Any) -> Completion:
         A Completion object as defined in `chatspec/types.py`.
     """
     try:
-        from .types import (
+        from ..types import (
             Completion,
             CompletionMessage,
         )  # using the models directly

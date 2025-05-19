@@ -47,7 +47,7 @@ from .params import (
     ResponseFormatParam,
     PredictionParam,
 )
-from .utils import (
+from ._utils.fn import (
     logger,
     ChatSpecError,
     # methods

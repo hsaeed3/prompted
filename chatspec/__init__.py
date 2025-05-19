@@ -22,22 +22,17 @@ from importlib import import_module
 from typing import Any, Dict, Tuple, TYPE_CHECKING
 
 from .logger import setup_logging as _setup_logging
+
 _setup_logging()
 
 if TYPE_CHECKING:
     # Import everything here for type checking and IDE support
-    from .markdown import (
-        markdownify,
-        _format_docstring as format_docstring,
-    )
+    from ._utils import Utils as utils
     from .mock import (
-        AI,
-        AsyncAI,
         mock_completion,
         mock_embedding,
         amock_completion,
         amock_embedding,
-        AIError,
     )
     from .types import (
         FunctionParameters,
@@ -85,38 +80,10 @@ if TYPE_CHECKING:
         to_client_params,
         to_completion_params,
     )
-    from .utils import (
-        is_completion,
-        is_stream,
-        is_message,
-        is_tool,
-        has_system_prompt,
-        has_tool_call,
-        was_tool_called,
-        run_tool,
-        create_tool_message,
-        create_image_message,
-        create_input_audio_message,
-        get_tool_calls,
-        dump_stream_to_message,
-        dump_stream_to_completion,
-        normalize_messages,
-        normalize_system_prompt,
-        create_field_mapping,
-        extract_function_fields,
-        convert_to_pydantic_model,
-        convert_to_tools,
-        convert_to_tool,
-        create_literal_pydantic_model,
-        stream_passthrough,
-        create_selection_model,
-        create_bool_model,
-    )
 
 __all__ = (
-    # markdown
-    "markdownify",
-    "format_docstring",
+    # UTILS
+    "utils",
     # mock
     "ChatCompletion",
     "AI",
@@ -172,44 +139,12 @@ __all__ = (
     "Params",
     "to_client_params",
     "to_completion_params",
-    # utils
-    "is_completion",
-    "is_stream",
-    "is_message",
-    "is_tool",
-    "has_system_prompt",
-    "has_tool_call",
-    "was_tool_called",
-    "run_tool",
-    "create_tool_message",
-    "create_image_message",
-    "create_input_audio_message",
-    "get_tool_calls",
-    "dump_stream_to_message",
-    "dump_stream_to_completion",
-    "normalize_messages",
-    "normalize_system_prompt",
-    "create_field_mapping",
-    "extract_function_fields",
-    "convert_to_pydantic_model",
-    "convert_to_tools",
-    "convert_to_tool",
-    "create_literal_pydantic_model",
-    "stream_passthrough",
-    # aliases for backward compatibility
-    "add_audio_to_message",
-    "create_selection_model",
-    "get_content",
-    "passthrough",
-    "create_bool_model",
-    "create_selection_model",
 )
 
 # Dynamic imports mapping
 _dynamic_imports: Dict[str, Tuple[str, str]] = {
-    # markdown
-    "markdownify": (".markdown", "markdownify"),
-    "format_docstring": (".markdown", "_format_docstring"),
+    # UTILS
+    "utils": ("._utils", "Utils"),
     # mock
     "ChatCompletion": (".mock", "AI"),
     "AI": (".mock", "AI"),
