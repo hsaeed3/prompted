@@ -106,6 +106,8 @@ if TYPE_CHECKING:
         convert_to_tool,
         create_literal_pydantic_model,
         stream_passthrough,
+        create_selection_model,
+        create_bool_model,
     )
 
 __all__ = (
@@ -196,6 +198,8 @@ __all__ = (
     "create_selection_model",
     "get_content",
     "passthrough",
+    "create_bool_model",
+    "create_selection_model",
 )
 
 # Dynamic imports mapping
@@ -287,9 +291,11 @@ _dynamic_imports: Dict[str, Tuple[str, str]] = {
     "stream_passthrough": (".utils", "stream_passthrough"),
     # aliases for backward compatibility
     "add_audio_to_message": (".utils", "create_input_audio_message"),
-    "create_selection_model": (".utils", "create_literal_pydantic_model"),
+    "create_selection_model": (".utils", "create_selection_model"),
+    "create_literal_pydantic_model": (".utils", "create_literal_pydantic_model"),
     "get_content": (".utils", "get_content"),
     "passthrough": (".utils", "stream_passthrough"),
+    "create_bool_model": (".utils", "create_bool_model"),
 }
 
 
@@ -302,7 +308,7 @@ def __getattr__(name: str) -> Any:
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
-def __dir__() -> 'list[str]':
+def __dir__() -> "list[str]":
     """Return list of module attributes for auto-completion."""
     return list(__all__)
 
