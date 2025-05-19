@@ -292,7 +292,10 @@ _dynamic_imports: Dict[str, Tuple[str, str]] = {
     # aliases for backward compatibility
     "add_audio_to_message": (".utils", "create_input_audio_message"),
     "create_selection_model": (".utils", "create_selection_model"),
-    "create_literal_pydantic_model": (".utils", "create_literal_pydantic_model"),
+    "create_literal_pydantic_model": (
+        ".utils",
+        "create_literal_pydantic_model",
+    ),
     "get_content": (".utils", "get_content"),
     "passthrough": (".utils", "stream_passthrough"),
     "create_bool_model": (".utils", "create_bool_model"),

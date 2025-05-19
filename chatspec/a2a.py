@@ -121,7 +121,7 @@ class ContentTypeNotSupportedError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Incompatible content types'
+    message: str | None = "Incompatible content types"
     """
     A String providing a short description of the error.
     """
@@ -136,7 +136,7 @@ class DataPart(BaseModel):
     """
     Structured data content
     """
-    kind: Literal['data'] = 'data'
+    kind: Literal["data"] = "data"
     """
     Part type - data for DataParts
     """
@@ -210,7 +210,7 @@ class InternalError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Internal error'
+    message: str | None = "Internal error"
     """
     A String providing a short description of the error.
     """
@@ -230,7 +230,7 @@ class InvalidAgentResponseError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Invalid agent response'
+    message: str | None = "Invalid agent response"
     """
     A String providing a short description of the error.
     """
@@ -250,7 +250,7 @@ class InvalidParamsError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Invalid parameters'
+    message: str | None = "Invalid parameters"
     """
     A String providing a short description of the error.
     """
@@ -270,7 +270,7 @@ class InvalidRequestError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Request payload validation error'
+    message: str | None = "Request payload validation error"
     """
     A String providing a short description of the error.
     """
@@ -290,7 +290,7 @@ class JSONParseError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Invalid JSON payload'
+    message: str | None = "Invalid JSON payload"
     """
     A String providing a short description of the error.
     """
@@ -327,7 +327,7 @@ class JSONRPCMessage(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -343,7 +343,7 @@ class JSONRPCRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -367,7 +367,7 @@ class JSONRPCResult(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -382,8 +382,8 @@ class Role(Enum):
     message sender's role
     """
 
-    agent = 'agent'
-    user = 'user'
+    agent = "agent"
+    user = "user"
 
 
 class MethodNotFoundError(BaseModel):
@@ -400,7 +400,7 @@ class MethodNotFoundError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Method not found'
+    message: str | None = "Method not found"
     """
     A String providing a short description of the error.
     """
@@ -462,7 +462,7 @@ class PushNotificationNotSupportedError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Push Notification is not supported'
+    message: str | None = "Push Notification is not supported"
     """
     A String providing a short description of the error.
     """
@@ -494,7 +494,7 @@ class TaskNotCancelableError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Task cannot be canceled'
+    message: str | None = "Task cannot be canceled"
     """
     A String providing a short description of the error.
     """
@@ -514,7 +514,7 @@ class TaskNotFoundError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'Task not found'
+    message: str | None = "Task not found"
     """
     A String providing a short description of the error.
     """
@@ -558,11 +558,11 @@ class TaskResubscriptionRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['tasks/resubscribe'] = 'tasks/resubscribe'
+    method: Literal["tasks/resubscribe"] = "tasks/resubscribe"
     """
     A String containing the name of the method to be invoked.
     """
@@ -577,15 +577,15 @@ class TaskState(Enum):
     Represents the possible states of a Task.
     """
 
-    submitted = 'submitted'
-    working = 'working'
-    input_required = 'input-required'
-    completed = 'completed'
-    canceled = 'canceled'
-    failed = 'failed'
-    rejected = 'rejected'
-    auth_required = 'auth-required'
-    unknown = 'unknown'
+    submitted = "submitted"
+    working = "working"
+    input_required = "input-required"
+    completed = "completed"
+    canceled = "canceled"
+    failed = "failed"
+    rejected = "rejected"
+    auth_required = "auth-required"
+    unknown = "unknown"
 
 
 class TextPart(BaseModel):
@@ -593,7 +593,7 @@ class TextPart(BaseModel):
     Represents a text segment within parts.
     """
 
-    kind: Literal['text'] = 'text'
+    kind: Literal["text"] = "text"
     """
     Part type - text for TextParts
     """
@@ -621,7 +621,7 @@ class UnsupportedOperationError(BaseModel):
     A Primitive or Structured value that contains additional information about the error.
     This may be omitted.
     """
-    message: str | None = 'This operation is not supported'
+    message: str | None = "This operation is not supported"
     """
     A String providing a short description of the error.
     """
@@ -725,11 +725,11 @@ class CancelTaskRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['tasks/cancel'] = 'tasks/cancel'
+    method: Literal["tasks/cancel"] = "tasks/cancel"
     """
     A String containing the name of the method to be invoked.
     """
@@ -748,7 +748,7 @@ class FilePart(BaseModel):
     """
     File content either as url or bytes
     """
-    kind: Literal['file'] = 'file'
+    kind: Literal["file"] = "file"
     """
     Part type - file for FileParts
     """
@@ -768,12 +768,12 @@ class GetTaskPushNotificationConfigRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['tasks/pushNotificationConfig/get'] = (
-        'tasks/pushNotificationConfig/get'
+    method: Literal["tasks/pushNotificationConfig/get"] = (
+        "tasks/pushNotificationConfig/get"
     )
     """
     A String containing the name of the method to be invoked.
@@ -794,7 +794,7 @@ class GetTaskPushNotificationConfigSuccessResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -814,11 +814,11 @@ class GetTaskRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['tasks/get'] = 'tasks/get'
+    method: Literal["tasks/get"] = "tasks/get"
     """
     A String containing the name of the method to be invoked.
     """
@@ -852,7 +852,7 @@ class JSONRPCErrorResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -898,12 +898,12 @@ class SetTaskPushNotificationConfigRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['tasks/pushNotificationConfig/set'] = (
-        'tasks/pushNotificationConfig/set'
+    method: Literal["tasks/pushNotificationConfig/set"] = (
+        "tasks/pushNotificationConfig/set"
     )
     """
     A String containing the name of the method to be invoked.
@@ -924,7 +924,7 @@ class SetTaskPushNotificationConfigSuccessResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -962,9 +962,13 @@ class Artifact(BaseModel):
 
 
 class GetTaskPushNotificationConfigResponse(
-    RootModel[JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse]
+    RootModel[
+        JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse
+    ]
 ):
-    root: JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse
+    root: (
+        JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse
+    )
     """
     JSON-RPC response for the 'tasks/pushNotificationConfig/set' method.
     """
@@ -979,7 +983,7 @@ class Message(BaseModel):
     """
     the context the message is associated with
     """
-    kind: Literal['message'] = 'message'
+    kind: Literal["message"] = "message"
     """
     event type
     """
@@ -1034,11 +1038,11 @@ class SendMessageRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['message/send'] = 'message/send'
+    method: Literal["message/send"] = "message/send"
     """
     A String containing the name of the method to be invoked.
     """
@@ -1058,11 +1062,11 @@ class SendStreamingMessageRequest(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    method: Literal['message/stream'] = 'message/stream'
+    method: Literal["message/stream"] = "message/stream"
     """
     A String containing the name of the method to be invoked.
     """
@@ -1073,9 +1077,13 @@ class SendStreamingMessageRequest(BaseModel):
 
 
 class SetTaskPushNotificationConfigResponse(
-    RootModel[JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse]
+    RootModel[
+        JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse
+    ]
 ):
-    root: JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse
+    root: (
+        JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse
+    )
     """
     JSON-RPC response for the 'tasks/pushNotificationConfig/set' method.
     """
@@ -1098,7 +1106,7 @@ class TaskArtifactUpdateEvent(BaseModel):
     """
     the context the task is associated with
     """
-    kind: Literal['artifact-update'] = 'artifact-update'
+    kind: Literal["artifact-update"] = "artifact-update"
     """
     event type
     """
@@ -1145,7 +1153,7 @@ class TaskStatusUpdateEvent(BaseModel):
     """
     indicates the end of the event stream
     """
-    kind: Literal['status-update'] = 'status-update'
+    kind: Literal["status-update"] = "status-update"
     """
     event type
     """
@@ -1202,7 +1210,7 @@ class Task(BaseModel):
     """
     unique identifier for the task
     """
-    kind: Literal['task'] = 'task'
+    kind: Literal["task"] = "task"
     """
     event type
     """
@@ -1226,7 +1234,7 @@ class CancelTaskSuccessResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -1246,7 +1254,7 @@ class GetTaskSuccessResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -1266,7 +1274,7 @@ class SendMessageSuccessResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
@@ -1286,24 +1294,30 @@ class SendStreamingMessageSuccessResponse(BaseModel):
     An identifier established by the Client that MUST contain a String, Number
     Numbers SHOULD NOT contain fractional parts.
     """
-    jsonrpc: Literal['2.0'] = '2.0'
+    jsonrpc: Literal["2.0"] = "2.0"
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    result: Task | Message | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
+    result: (
+        Task | Message | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
+    )
     """
     The result object on success
     """
 
 
-class CancelTaskResponse(RootModel[JSONRPCErrorResponse | CancelTaskSuccessResponse]):
+class CancelTaskResponse(
+    RootModel[JSONRPCErrorResponse | CancelTaskSuccessResponse]
+):
     root: JSONRPCErrorResponse | CancelTaskSuccessResponse
     """
     JSON-RPC response for the 'tasks/cancel' method.
     """
 
 
-class GetTaskResponse(RootModel[JSONRPCErrorResponse | GetTaskSuccessResponse]):
+class GetTaskResponse(
+    RootModel[JSONRPCErrorResponse | GetTaskSuccessResponse]
+):
     root: JSONRPCErrorResponse | GetTaskSuccessResponse
     """
     JSON-RPC success response for the 'tasks/get' method.
@@ -1335,7 +1349,9 @@ class JSONRPCResponse(
     """
 
 
-class SendMessageResponse(RootModel[JSONRPCErrorResponse | SendMessageSuccessResponse]):
+class SendMessageResponse(
+    RootModel[JSONRPCErrorResponse | SendMessageSuccessResponse]
+):
     root: JSONRPCErrorResponse | SendMessageSuccessResponse
     """
     JSON-RPC response model for the 'message/send' method.
