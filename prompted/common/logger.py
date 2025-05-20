@@ -50,13 +50,7 @@ def setup_logging():
 
 
 def verbosity(
-    level : Literal[
-        "debug",
-        "info",
-        "warning",
-        "error",
-        "critical"
-    ]
+    level: Literal["debug", "info", "warning", "error", "critical"],
 ) -> None:
     logger = logging.getLogger("prompted")
     logger.setLevel(level.upper())

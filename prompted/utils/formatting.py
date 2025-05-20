@@ -11,10 +11,7 @@ from inspect import getdoc
 from pydantic import BaseModel
 from typing import Any, Optional
 
-from ..common.cache import (
-    cached,
-    make_hashable
-)
+from ..common.cache import cached, make_hashable
 
 
 logger = logging.getLogger(__name__)
@@ -369,7 +366,9 @@ def format_to_markdown(
                             )
                         ]
                         if not schema and not is_class:
-                            field_parts.append(f" = {getattr(target, key)}")
+                            field_parts.append(
+                                f" = {getattr(target, key)}"
+                            )
                         field_lines.extend(field_parts)
 
                 if compact and field_lines:

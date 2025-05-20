@@ -2,12 +2,7 @@
 💭 chatspec._client.deps
 """
 
-from typing import (
-    Any,
-    Dict,
-    List,
-    Optional
-)
+from typing import Any, Dict, List, Optional
 
 from ..params import InstructorModeParam
 
@@ -22,6 +17,7 @@ class ClientDeps:
     A class that contains the dependencies for the `Client`
     class.
     """
+
     is_litellm_initialized = False
     """Whether `litellm` has been initialized."""
     completion = None
@@ -97,7 +93,9 @@ class ClientDeps:
             self.initialize_litellm()
 
         self.instructor_sync = instructor.from_litellm(self.completion)
-        self.instructor_async = instructor.from_litellm(self.completion_async)
+        self.instructor_async = instructor.from_litellm(
+            self.completion_async
+        )
         self.instructor_mode = instructor.Mode
 
         self.is_instructor_initialized = True
@@ -131,9 +129,11 @@ class ClientDeps:
             self.initialize_instructor()
 
         return self.instructor_async.mode.value
-    
+
     @instructor_async_mode.setter
-    def instructor_async_mode(self, mode: InstructorModeParam = "tool_call"):
+    def instructor_async_mode(
+        self, mode: InstructorModeParam = "tool_call"
+    ):
         """
         Set the instructor async mode.
         """
@@ -143,7 +143,7 @@ class ClientDeps:
         self.instructor_async.mode = self.instructor_mode(mode)
 
 
-CLIENT_DEPS : ClientDeps = ClientDeps()
+CLIENT_DEPS: ClientDeps = ClientDeps()
 """Singleton instance of `ClientDeps`."""
 
 

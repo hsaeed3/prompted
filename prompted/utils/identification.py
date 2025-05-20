@@ -45,7 +45,7 @@ def _get_value(obj: Any, key: str, default: Any = None) -> Any:
     except Exception as e:
         logger.debug(f"Error getting value for key {key}: {e}")
         return default
-    
+
 
 # ------------------------------------------------------------------------------
 # Identification Methods
@@ -118,7 +118,7 @@ def is_stream(completion: Any) -> bool:
     except Exception as e:
         logger.debug(f"Error checking if object is stream: {e}")
         return False
-    
+
 
 def is_message(message: Any) -> bool:
     """Checks if a given object is a valid chat message."""
@@ -135,7 +135,7 @@ def is_message(message: Any) -> bool:
                 "tool",
                 "developer",
                 # ADDED FOR GOOGLE A2A
-                "agent"
+                "agent",
             }
             role = message.get("role")
             # First check role validity

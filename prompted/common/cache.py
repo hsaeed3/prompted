@@ -131,7 +131,7 @@ def make_hashable(obj: Any) -> str:
         logger.debug(f"Error making object hashable: {e}")
         # Fallback to a basic string hash
         return hashlib.sha256(str(type(obj)).encode()).hexdigest()
-    
+
 
 def cached(
     key_fn,

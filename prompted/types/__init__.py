@@ -1,7 +1,7 @@
 """
 💭 prompted.types
 
-Contains type definitions, models and light utilities for types 
+Contains type definitions, models and light utilities for types
 found within the `Chat Completions`, `Anthropic Model Context Protocol`
 and `Google A2A` specifications.
 """
@@ -41,14 +41,13 @@ __all__ = [
     "Completion",
     "CompletionChunk",
     "Embedding",
-    "EmbeddingsUsage", 
-
+    "EmbeddingsUsage",
     "InstructorModeParam",
     "MessagesParam",
     "ChatModel",
     "ModelParam",
     "BaseURLParam",
-    "FunctionCallParam", 
+    "FunctionCallParam",
     "ToolChoiceParam",
     "ToolChoiceNamedTool",
     "ModalitiesParam",
@@ -60,20 +59,32 @@ __all__ = [
     "ClientParams",
     "EmbeddingParams",
     "CompletionParams",
-    "Params",   
+    "Params",
 ]
 
-IMPORT_MAP : Dict[str, Tuple[str, str]] = {
+IMPORT_MAP: Dict[str, Tuple[str, str]] = {
     # chat completions
     "FunctionParameters": (".chat_completions", "FunctionParameters"),
     "Function": (".chat_completions", "Function"),
     "Tool": (".chat_completions", "Tool"),
     "FunctionCall": (".chat_completions", "FunctionCall"),
     "ToolCall": (".chat_completions", "ToolCall"),
-    "MessageContentImageURL": (".chat_completions", "MessageContentImageURL"),
-    "MessageContentImagePart": (".chat_completions", "MessageContentImagePart"),
-    "MessageContentAudioPart": (".chat_completions", "MessageContentAudioPart"),
-    "MessageContentTextPart": (".chat_completions", "MessageContentTextPart"),
+    "MessageContentImageURL": (
+        ".chat_completions",
+        "MessageContentImageURL",
+    ),
+    "MessageContentImagePart": (
+        ".chat_completions",
+        "MessageContentImagePart",
+    ),
+    "MessageContentAudioPart": (
+        ".chat_completions",
+        "MessageContentAudioPart",
+    ),
+    "MessageContentTextPart": (
+        ".chat_completions",
+        "MessageContentTextPart",
+    ),
     "MessageContentPart": (".chat_completions", "MessageContentPart"),
     "MessageContent": (".chat_completions", "MessageContent"),
     "MessageTextContent": (".chat_completions", "MessageTextContent"),
@@ -91,24 +102,34 @@ IMPORT_MAP : Dict[str, Tuple[str, str]] = {
     "CompletionChunk": (".chat_completions", "CompletionChunk"),
     "Embedding": (".chat_completions", "Embedding"),
     "EmbeddingsUsage": (".chat_completions", "EmbeddingsUsage"),
-
     # Instructor
     "InstructorModeParam": (".instructor", "InstructorModeParam"),
-
     # Chat completions params
-    "MessagesParam": (".chat_completions_params", "MessagesParam"), 
+    "MessagesParam": (".chat_completions_params", "MessagesParam"),
     "ChatModel": (".chat_completions_params", "ChatModel"),
     "ModelParam": (".chat_completions_params", "ModelParam"),
     "BaseURLParam": (".chat_completions_params", "BaseURLParam"),
     "FunctionCallParam": (".chat_completions_params", "FunctionCallParam"),
     "ToolChoiceParam": (".chat_completions_params", "ToolChoiceParam"),
-    "ToolChoiceNamedTool": (".chat_completions_params", "ToolChoiceNamedTool"),
+    "ToolChoiceNamedTool": (
+        ".chat_completions_params",
+        "ToolChoiceNamedTool",
+    ),
     "ModalitiesParam": (".chat_completions_params", "ModalitiesParam"),
     "PredictionParam": (".chat_completions_params", "PredictionParam"),
     "AudioParam": (".chat_completions_params", "AudioParam"),
-    "ReasoningEffortParam": (".chat_completions_params", "ReasoningEffortParam"),
-    "ResponseFormatParam": (".chat_completions_params", "ResponseFormatParam"),
-    "StreamOptionsParam": (".chat_completions_params", "StreamOptionsParam"),
+    "ReasoningEffortParam": (
+        ".chat_completions_params",
+        "ReasoningEffortParam",
+    ),
+    "ResponseFormatParam": (
+        ".chat_completions_params",
+        "ResponseFormatParam",
+    ),
+    "StreamOptionsParam": (
+        ".chat_completions_params",
+        "StreamOptionsParam",
+    ),
     "ClientParams": (".chat_completions_params", "ClientParams"),
     "CompletionParams": (".chat_completions_params", "CompletionParams"),
     "EmbeddingParams": (".chat_completions_params", "EmbeddingParams"),
