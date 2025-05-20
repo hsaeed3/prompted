@@ -30,7 +30,10 @@ dependencies = [
 [project.optional-dependencies]
 create = [
     "litellm>=1.61.3",
-    "instructor[litellm]>=1.8.2",
+    "instructor>=1.8.2",
+]
+mcp = [
+    "mcp>=1.9.0",
 ]
 
 
@@ -57,7 +60,8 @@ dev = [
     "ipython",
     # openai is used for testing
     "openai>=1.52.0,<2.0.0",
-    "litellm" # Already in 'create' extra, but included here if you need it for general dev without the 'create' extra.
+    "litellm", # Already in 'create' extra, but included here if you need it for general dev without the 'create' extra.
+    "instructor[litellm]>=1.8.2"
 ]
 
 
@@ -101,25 +105,4 @@ exclude = ["docs/"]
 # ------------------------------------------------------------------------
 
 
-# == ruff config ==
-[tool.ruff]
-# == base / core linting config ==
-target-version = "py310"
-# line length & indents
-line-length = 75
-indent-width = 4
-# == ruff linting config ==
-[tool.ruff.lint]
-# ensure '_' namespace is protected if vars are unused
-dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-# == ruff formatting config ==
-[tool.ruff.format]
-# strings in nanograph are double quoted
-quote-style = "double"
-# indent using spaces not tabs for consistency & more robust formatting
-# this will be ignored by ruff v0.3.0+
-indent-style = "space"
-# respect training commas
-skip-magic-trailing-comma = false
-# detect appropriate line ending
-line-ending = "auto"
+

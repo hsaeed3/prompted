@@ -329,9 +329,7 @@ for a few common providers.
 """
 
 
-class FunctionCallParam(
-    TypedDict
-):  # Deprecated by OpenAI in favor of tool_choice
+class FunctionCallParam(TypedDict):  # Deprecated by OpenAI in favor of tool_choice
     """
     (Deprecated) A dictionary representing a specific function to be called.
     Use `tool_choice` with a specific function name instead.
@@ -364,9 +362,7 @@ class ToolChoiceNamedTool(TypedDict):
 
 
 ToolChoiceParam: TypeAlias = Union[
-    Literal[
-        "none"
-    ],  # Model will not call any tool and instead generates a message.
+    Literal["none"],  # Model will not call any tool and instead generates a message.
     Literal[
         "auto"
     ],  # Model can pick between generating a message or calling one or more tools.
@@ -485,9 +481,7 @@ class StreamOptionsParam(TypedDict):
     Options for streaming responses. Only set this when `stream: true`.
     """
 
-    include_usage: NotRequired[
-        bool
-    ]  # Changed to NotRequired as it's optional
+    include_usage: NotRequired[bool]  # Changed to NotRequired as it's optional
     """
     If set, an additional chunk will be streamed before the `data: [DONE]` message.
     The `usage` field on this chunk will contain the token usage statistics for the
@@ -522,9 +516,7 @@ class EmbeddingParams(TypedDict):
     A dictionary representing parameters used when creating an embedding.
     """
 
-    input: Required[
-        Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]
-    ]
+    input: Required[Union[str, List[str], Iterable[int], Iterable[Iterable[int]]]]
     """
     Input text to embed, encoded as a string or array of tokens. To embed multiple
     inputs in a single request, pass a list of strings or a list of token arrays.
@@ -575,16 +567,12 @@ class CompletionParams(
         Optional[Dict[str, int]]
     ]  # Max 100 tokens. Values between -100 and 100.
     logprobs: NotRequired[Optional[bool]]  # Defaults to false.
-    top_logprobs: NotRequired[
-        Optional[int]
-    ]  # 0 to 5. Only if logprobs is true.
+    top_logprobs: NotRequired[Optional[int]]  # 0 to 5. Only if logprobs is true.
     # max_completion_tokens: Optional[int] # This is usually 'max_tokens'
     max_tokens: NotRequired[Optional[int]]  # Max tokens to generate.
     # metadata: Optional[Dict[str, str]] # Not a standard OpenAI param, maybe for other providers
     # modalities: Optional[ModalitiesParam] # Custom param
-    n: NotRequired[
-        Optional[int]
-    ]  # How many choices to generate. Defaults to 1.
+    n: NotRequired[Optional[int]]  # How many choices to generate. Defaults to 1.
     parallel_tool_calls: NotRequired[
         Optional[bool]
     ]  # Defaults to True. Setting to False disables parallel tool calling.
@@ -596,17 +584,11 @@ class CompletionParams(
     response_format: NotRequired[Optional[ResponseFormatParam]]
     seed: NotRequired[Optional[int]]  # For reproducibility. Beta.
     # service_tier: Optional[Literal["auto", "default"]] # OpenAI specific, for enterprise. Not commonly exposed for all models.
-    stop: NotRequired[
-        Optional[Union[str, List[str]]]
-    ]  # Up to 4 sequences.
+    stop: NotRequired[Optional[Union[str, List[str]]]]  # Up to 4 sequences.
     # store: Optional[bool] # Not a standard OpenAI param, maybe custom for caching
     stream: NotRequired[Optional[bool]]  # Defaults to false.
-    stream_options: NotRequired[
-        Optional[StreamOptionsParam]
-    ]  # Only if stream is true.
-    temperature: NotRequired[
-        Optional[float]
-    ]  # Between 0 and 2. Defaults to 1.
+    stream_options: NotRequired[Optional[StreamOptionsParam]]  # Only if stream is true.
+    temperature: NotRequired[Optional[float]]  # Between 0 and 2. Defaults to 1.
     top_p: NotRequired[Optional[float]]  # Between 0 and 1. Defaults to 1.
     tools: NotRequired[Optional[Iterable[Tool]]]
     tool_choice: NotRequired[Optional[ToolChoiceParam]]
@@ -653,11 +635,7 @@ def to_completion_params(params: Params) -> CompletionParams:
     }
     # Required fields in CompletionParams must be present in params
     if "messages" not in filtered_params:
-        raise ValueError(
-            "Missing required parameter 'messages' for CompletionParams"
-        )
+        raise ValueError("Missing required parameter 'messages' for CompletionParams")
     if "model" not in filtered_params:
-        raise ValueError(
-            "Missing required parameter 'model' for CompletionParams"
-        )
+        raise ValueError("Missing required parameter 'model' for CompletionParams")
     return CompletionParams(**filtered_params)  # type: ignore[arg-type] # if params might not have all required fields initially

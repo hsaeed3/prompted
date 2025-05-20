@@ -36,9 +36,7 @@ def setup_logging():
         show_path=False,  # Hide the path column
         markup=True,  # Essential to interpret the rich markup added by the filter
     )
-    formatter = logging.Formatter(
-        "| [bold]{name}[/bold] - {message}", style="{"
-    )
+    formatter = logging.Formatter("| [bold]{name}[/bold] - {message}", style="{")
     handler.setFormatter(formatter)
     handler.addFilter(RichMarkupFilter())
     if logger.hasHandlers():

@@ -966,13 +966,9 @@ class Artifact(BaseModel):
 
 
 class GetTaskPushNotificationConfigResponse(
-    RootModel[
-        JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse
-    ]
+    RootModel[JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse]
 ):
-    root: (
-        JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse
-    )
+    root: JSONRPCErrorResponse | GetTaskPushNotificationConfigSuccessResponse
     """
     JSON-RPC response for the 'tasks/pushNotificationConfig/set' method.
     """
@@ -1081,13 +1077,9 @@ class SendStreamingMessageRequest(BaseModel):
 
 
 class SetTaskPushNotificationConfigResponse(
-    RootModel[
-        JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse
-    ]
+    RootModel[JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse]
 ):
-    root: (
-        JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse
-    )
+    root: JSONRPCErrorResponse | SetTaskPushNotificationConfigSuccessResponse
     """
     JSON-RPC response for the 'tasks/pushNotificationConfig/set' method.
     """
@@ -1302,26 +1294,20 @@ class SendStreamingMessageSuccessResponse(BaseModel):
     """
     Specifies the version of the JSON-RPC protocol. MUST be exactly "2.0".
     """
-    result: (
-        Task | Message | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
-    )
+    result: Task | Message | TaskStatusUpdateEvent | TaskArtifactUpdateEvent
     """
     The result object on success
     """
 
 
-class CancelTaskResponse(
-    RootModel[JSONRPCErrorResponse | CancelTaskSuccessResponse]
-):
+class CancelTaskResponse(RootModel[JSONRPCErrorResponse | CancelTaskSuccessResponse]):
     root: JSONRPCErrorResponse | CancelTaskSuccessResponse
     """
     JSON-RPC response for the 'tasks/cancel' method.
     """
 
 
-class GetTaskResponse(
-    RootModel[JSONRPCErrorResponse | GetTaskSuccessResponse]
-):
+class GetTaskResponse(RootModel[JSONRPCErrorResponse | GetTaskSuccessResponse]):
     root: JSONRPCErrorResponse | GetTaskSuccessResponse
     """
     JSON-RPC success response for the 'tasks/get' method.
@@ -1353,9 +1339,7 @@ class JSONRPCResponse(
     """
 
 
-class SendMessageResponse(
-    RootModel[JSONRPCErrorResponse | SendMessageSuccessResponse]
-):
+class SendMessageResponse(RootModel[JSONRPCErrorResponse | SendMessageSuccessResponse]):
     root: JSONRPCErrorResponse | SendMessageSuccessResponse
     """
     JSON-RPC response model for the 'message/send' method.

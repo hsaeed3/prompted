@@ -103,8 +103,7 @@ def make_hashable(obj: Any) -> str:
             # Sort dict items for consistent hashing
             return hashlib.sha256(
                 ",".join(
-                    f"{k}:{make_hashable(v)}"
-                    for k, v in sorted(obj.items())
+                    f"{k}:{make_hashable(v)}" for k, v in sorted(obj.items())
                 ).encode()
             ).hexdigest()
 
