@@ -5,6 +5,7 @@
 import logging
 from rich.logging import RichHandler
 from rich.console import Console
+from typing import Literal
 
 console = Console()
 
@@ -46,6 +47,19 @@ def setup_logging():
     logger.setLevel(logging.INFO)
 
     return logger
+
+
+def verbosity(
+    level : Literal[
+        "debug",
+        "info",
+        "warning",
+        "error",
+        "critical"
+    ]
+) -> None:
+    logger = logging.getLogger("prompted")
+    logger.setLevel(level.upper())
 
 
 if __name__ == "__main__":

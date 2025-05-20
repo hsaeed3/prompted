@@ -1233,12 +1233,13 @@ wheels = [
 
 [[package]]
 name = "prompted"
-version = "0.0.4"
+version = "0.0.5"
 source = { editable = "." }
 dependencies = [
     { name = "cachetools" },
     { name = "docstring-parser" },
     { name = "pydantic" },
+    { name = "rich" },
     { name = "typing-inspect" },
 ]
 
@@ -1269,6 +1270,7 @@ requires-dist = [
     { name = "instructor", extras = ["litellm"], marker = "extra == 'client'" },
     { name = "litellm", marker = "extra == 'client'" },
     { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "rich", specifier = ">=13.9.4" },
     { name = "typing-inspect", specifier = ">=0.9.0" },
 ]
 

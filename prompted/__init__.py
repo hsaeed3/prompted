@@ -11,9 +11,11 @@ from ._main import (
     types,
     utils
 )
+from .core.logger import verbosity
 
 __all__ = [
     "create",
     "types",
-    "utils"
+    "utils",
+    "verbosity"
 ]
