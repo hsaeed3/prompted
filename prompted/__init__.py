@@ -18,7 +18,11 @@ _setup_logging()
 
 
 if TYPE_CHECKING:
-    # AGENTS!
+    # AGENTS! WOOHOOOO!!!
+    from .agents.agent import Agent, create_agent
+
+    # FUNCTION TOOLS! WOOOHOOOOOOO!
+    from .agents.agent_tool import AgentTool, agent_tool
 
     from .create import (
         create_from_attributes,
@@ -125,6 +129,12 @@ if TYPE_CHECKING:
 
 
 IMPORT_MAP: Dict[str, Tuple[str, str]] = {
+    # AGENTS!
+    "Agent": (".agents.agent", "Agent"),
+    "create_agent": (".agents.agent", "create_agent"),
+    # FUNCTION TOOLS!
+    "AgentTool": (".agents.agent_tool", "AgentTool"),
+    "agent_tool": (".agents.agent_tool", "agent_tool"),
     # LOGGING
     "verbosity": (".common.logger", "verbosity"),
     # TYPES
@@ -306,6 +316,10 @@ if sys.version_info >= (3, 7):
 
 
 __all__ = [
+    "Agent",
+    "create_agent",
+    "AgentTool",
+    "agent_tool",
     "verbosity",
     "MethodType",
     "FunctionParameters",

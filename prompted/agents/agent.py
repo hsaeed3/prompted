@@ -336,6 +336,8 @@ class Agent(Generic[CtxType, OutType]):
     """Configuration settings controlling the agent's runtime behavior."""
     tools: list[AgentTool] = field(default_factory=list)
     """A list of `AgentTool` instances that this agent is capable of using."""
+    logger: logging.Logger | None = field(default=None, init=False, repr=False)
+    """Internal logger for the agent."""
 
     _create_api: Create = field(default_factory=Create, init=False, repr=False)
     """Internal instance of the `Create` API for LLM interactions."""
@@ -354,6 +356,10 @@ class Agent(Generic[CtxType, OutType]):
 
     def __post_init__(self):
         """Validates context type after initialization."""
+
+        if not self.logger:
+            self.logger = logging.getLogger(f"prompted.agents.{self.name}")
+
         if self.context is not None:
             is_pydantic_model_class = isinstance(self.context, type) and issubclass(
                 self.context, BaseModel
@@ -403,6 +409,7 @@ class Agent(Generic[CtxType, OutType]):
         prompt_template: Optional[AgentPromptTemplate] = None,
         save_history: Optional[bool] = None,
         show_context: Optional[bool] = None,
+        verbose: bool = False,
     ) -> "Agent[CtxType, OutType]":
         """
         Factory method to create and configure an Agent instance.
@@ -433,6 +440,7 @@ class Agent(Generic[CtxType, OutType]):
             - prompt_template (Optional[AgentPromptTemplate]): Custom prompt template for the agent.
             - save_history (Optional[bool]): Whether to save the full message history in the response. Defaults to True.
             - show_context (Optional[bool]): If True and keep_intermediate_steps is True, context update thought messages are passed to the LLM for main generation. Defaults to AgentSettings default (True).
+            - verbose (bool): If True, print verbose logging messages.
 
         Returns:
             A new Agent instance.
@@ -445,6 +453,10 @@ class Agent(Generic[CtxType, OutType]):
             if update_context_before_response is None
             else update_context_before_response
         )
+
+        logger = logging.getLogger(f"prompted.agents.{name}")
+        if verbose:
+            logger.setLevel(logging.DEBUG)
 
         # Use sensible defaults for end_strategy based on whether tools will be used
         # For a no-tool agent, selective is more efficient than the full strategy that requires a finalize_response tool
@@ -496,6 +508,7 @@ class Agent(Generic[CtxType, OutType]):
             prompt_template=(prompt_template or AgentPromptTemplate()),
             settings=settings,
             tools=[],  # Tools are added via add_tools method
+            logger=logger,
         )
 
     def _get_context_as_dict(
@@ -513,7 +526,7 @@ class Agent(Generic[CtxType, OutType]):
             return dataclass_asdict(ctx_to_use)
         if isinstance(ctx_to_use, dict):
             return ctx_to_use
-        logger.warning(
+        self.logger.warning(
             f"Context type {type(ctx_to_use)} for agent '{self.name}' is not directly serializable to dict. Returning empty dict."
         )
         return {}
@@ -813,7 +826,7 @@ class Agent(Generic[CtxType, OutType]):
                 if not any(t.name == tool_item.name for t in self.tools):
                     self.tools.append(tool_item)
                 else:
-                    logger.warning(
+                    self.logger.warning(
                         f"Tool with name '{tool_item.name}' already exists. Skipping duplicate."
                     )
             elif callable(tool_item):
@@ -823,15 +836,15 @@ class Agent(Generic[CtxType, OutType]):
                     if not any(t.name == converted_tool.name for t in self.tools):
                         self.tools.append(converted_tool)
                     else:
-                        logger.warning(
+                        self.logger.warning(
                             f"Tool (from callable) with name '{converted_tool.name}' already exists. Skipping duplicate."
                         )
                 except Exception as e:
-                    logger.error(
+                    self.logger.error(
                         f"Failed to convert callable {getattr(tool_item, '__name__', 'Unnamed callable')} to AgentTool: {e}. Skipping."
                     )
             else:
-                logger.warning(
+                self.logger.warning(
                     f"Item {tool_item} is not a valid AgentTool or callable. Skipping."
                 )
 
@@ -854,7 +867,7 @@ class Agent(Generic[CtxType, OutType]):
             position: Optional index at which to insert the part. If None, appends to the end.
         """
         if content is None:
-            logger.warning(
+            self.logger.warning(
                 f"Agent '{self.name}': Attempted to add a prompt part with no content. Skipping."
             )
             return
@@ -912,7 +925,7 @@ class Agent(Generic[CtxType, OutType]):
             request_prompt_str += "\nPlease generate the content for this section now:"
 
             try:
-                logger.info(
+                self.logger.info(
                     f"Agent '{self.name}': Generating prompt part for section: {part_name}"
                 )
                 generated_part_model = await self._create_api.async_from_schema(
@@ -928,15 +941,15 @@ class Agent(Generic[CtxType, OutType]):
                         name=part_name,
                         content=generated_part_model.generated_content,
                     )  # type: ignore
-                    logger.info(
+                    self.logger.info(
                         f"Agent '{self.name}': Successfully generated and added prompt part: {part_name}"
                     )
                 else:
-                    logger.warning(
+                    self.logger.warning(
                         f"Agent '{self.name}': LLM did not return valid content for prompt part: {part_name}"
                     )
             except Exception as e:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Error generating prompt part '{part_name}': {e}",
                     exc_info=True,
                 )
@@ -960,7 +973,7 @@ class Agent(Generic[CtxType, OutType]):
             any messages generated during the context update process (e.g., thoughts).
         """
         if run_time_context is None:
-            logger.debug(
+            self.logger.debug(
                 f"Agent '{self.name}': Context update skipped as no context object is available for this run."
             )
             return run_time_context, []
@@ -983,13 +996,13 @@ class Agent(Generic[CtxType, OutType]):
         elif isinstance(run_time_context, dict):
             working_context_dict = deepcopy(run_time_context)  # Ensure mutable copy
         else:  # Should be caught by __post_init__ or create, but as a safeguard
-            logger.warning(
+            self.logger.warning(
                 f"Agent '{self.name}': Context update skipped due to unsupported context type {type(run_time_context)}."
             )
             return run_time_context, []
 
         if not working_context_dict and not (is_pydantic_ctx or is_dataclass_ctx):
-            logger.debug(
+            self.logger.debug(
                 f"Agent '{self.name}': Context is an empty dictionary and not a predefined structured type, skipping update logic."
             )
             return run_time_context, []
@@ -1011,7 +1024,7 @@ class Agent(Generic[CtxType, OutType]):
                 if (
                     not field_definitions
                 ):  # Handle empty dict that might have been passed
-                    logger.debug(
+                    self.logger.debug(
                         f"Agent '{self.name}': Cannot create dynamic Pydantic model from empty dictionary context. Skipping update."
                     )
                     return run_time_context, []
@@ -1020,7 +1033,7 @@ class Agent(Generic[CtxType, OutType]):
                     **field_definitions,
                 )  # type: ignore
             except Exception as e_dyn_model:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Failed to create dynamic Pydantic model from dict context: {e_dyn_model}. Skipping context update."
                 )
                 return run_time_context, []
@@ -1070,7 +1083,7 @@ class Agent(Generic[CtxType, OutType]):
                 )  # type: ignore
 
                 if not fields_to_update_names:
-                    logger.debug(
+                    self.logger.debug(
                         f"Agent '{self.name}' (Selective Context): No fields identified for update."
                     )
                     return (
@@ -1090,7 +1103,7 @@ class Agent(Generic[CtxType, OutType]):
                 if self.settings.iterative_context:
                     for field_name in fields_to_update_names:
                         if field_name not in context_schema_for_llm.model_fields:
-                            logger.warning(
+                            self.logger.warning(
                                 f"Agent '{self.name}': Field '{field_name}' selected for update but not in context schema. Skipping this field."
                             )
                             continue
@@ -1147,7 +1160,7 @@ class Agent(Generic[CtxType, OutType]):
                                         )
                                     )
                         except Exception as e_iter_field:
-                            logger.error(
+                            self.logger.error(
                                 f"Agent '{self.name}': Error during iterative context update for field '{field_name}': {e_iter_field}"
                             )
                 else:  # Batch update for selected fields
@@ -1166,7 +1179,7 @@ class Agent(Generic[CtxType, OutType]):
                         if fname in context_schema_for_llm.model_fields
                     }
                     if not valid_fields_for_batch_schema:
-                        logger.debug(
+                        self.logger.debug(
                             f"Agent '{self.name}' (Selective Context): No valid fields remaining after schema check for batch update."
                         )
                         return (
@@ -1209,12 +1222,12 @@ class Agent(Generic[CtxType, OutType]):
                                     )
                                 )
                     except Exception as e_batch_sel:
-                        logger.error(
+                        self.logger.error(
                             f"Agent '{self.name}': Error during batch selective context update: {e_batch_sel}"
                         )
 
             except Exception as e_select_fields:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Error during selective context field selection phase: {e_select_fields}"
                 )
 
@@ -1247,7 +1260,7 @@ class Agent(Generic[CtxType, OutType]):
                             )
                         )
             except Exception as e_full_update:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Error during full context update: {e_full_update}"
                 )
 
@@ -1265,7 +1278,7 @@ class Agent(Generic[CtxType, OutType]):
                         working_context_dict
                     )  # type: ignore
                 except ValidationError as ve:
-                    logger.error(
+                    self.logger.error(
                         f"Agent '{self.name}': Validation error applying context updates to Pydantic model {original_ctx_type.__name__}: {ve}. Context may be partially updated or unchanged."
                     )
                     run_time_context = cast(
@@ -1275,7 +1288,7 @@ class Agent(Generic[CtxType, OutType]):
                 try:
                     run_time_context = original_ctx_type(**working_context_dict)  # type: ignore
                 except Exception as e_dc_reconstruct:
-                    logger.error(
+                    self.logger.error(
                         f"Agent '{self.name}': Error reconstructing dataclass {original_ctx_type.__name__} from updated context: {e_dc_reconstruct}. Context may be partially updated."
                     )
                     run_time_context = cast(CtxType, working_context_dict)  # Fallback
@@ -1348,7 +1361,7 @@ class Agent(Generic[CtxType, OutType]):
                 )
             return plan_text_content, planning_step_messages
         except Exception as e_planning:
-            logger.error(
+            self.logger.error(
                 f"Agent '{self.name}': Error during planning step: {e_planning}",
                 exc_info=True,
             )
@@ -1420,7 +1433,7 @@ class Agent(Generic[CtxType, OutType]):
                 )
             return reflection_text_content, reflection_step_messages
         except Exception as e_reflection:
-            logger.error(
+            self.logger.error(
                 f"Agent '{self.name}': Error during reflection step: {e_reflection}",
                 exc_info=True,
             )
@@ -1450,7 +1463,7 @@ class Agent(Generic[CtxType, OutType]):
                             tool_item_override
                         )
                     except Exception as e_conv:
-                        logger.warning(
+                        self.logger.warning(
                             f"Agent '{self.name}': Could not convert callable tool '{getattr(tool_item_override, '__name__', 'Unnamed callable')}' from override list: {e_conv}"
                         )
 
@@ -1498,7 +1511,7 @@ class Agent(Generic[CtxType, OutType]):
 
             if target_tool:
                 try:
-                    logger.info(
+                    self.logger.info(
                         f"Agent '{self.name}': Executing tool: {tool_name} with args: {tool_arguments_str}"
                     )
                     tool_execution_result = await target_tool.execute(
@@ -1515,13 +1528,13 @@ class Agent(Generic[CtxType, OutType]):
                     else:
                         tool_result_content_str = str(tool_execution_result)
                 except Exception as e_tool_exec:
-                    logger.error(
+                    self.logger.error(
                         f"Agent '{self.name}': Error executing tool {tool_name}: {e_tool_exec}",
                         exc_info=True,
                     )
                     tool_result_content_str = f"Error during execution of tool '{tool_name}': {str(e_tool_exec)}"
             else:
-                logger.warning(
+                self.logger.warning(
                     f"Agent '{self.name}': Tool '{tool_name}' called by LLM but not found in agent's available tools for this step."
                 )
 
@@ -1642,7 +1655,7 @@ class Agent(Generic[CtxType, OutType]):
                     return decision_model_instance.should_end  # type: ignore
                 return False  # Default to continue if no valid decision model
             except Exception as e_selective_end:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Error during selective end decision process: {e_selective_end}",
                     exc_info=True,
                 )
@@ -1682,30 +1695,39 @@ class Agent(Generic[CtxType, OutType]):
         ):  # type: ignore
             # Extract relevant content from the conversation history if needed
             if (
-                not accumulated_text_content 
-                or accumulated_text_content == "[Agent concluded its operation without generating explicit textual output for the user.]"
+                not accumulated_text_content
+                or accumulated_text_content
+                == "[Agent concluded its operation without generating explicit textual output for the user.]"
             ):
                 # Extract the actual user-agent conversation, ignoring system and tool messages
                 conversation_extract = []
                 for msg in final_message_history:
                     role = msg.get("role")
-                    if role in ("user", "assistant") and isinstance(msg.get("content"), str):
+                    if role in ("user", "assistant") and isinstance(
+                        msg.get("content"), str
+                    ):
                         content = msg.get("content")
                         if content and not self._is_thought_message_content(content):
-                            conversation_extract.append(f"{role.capitalize()}: {content}")
-                
+                            conversation_extract.append(
+                                f"{role.capitalize()}: {content}"
+                            )
+
                 if conversation_extract:
                     accumulated_text_content = "\n".join(conversation_extract)
                 else:
                     # Fallback if we couldn't extract meaningful conversation
                     for msg in reversed(final_message_history):
-                        if msg.get("role") == "user" and isinstance(msg.get("content"), str):
-                            accumulated_text_content = f"User requested: {msg.get('content')}"
+                        if msg.get("role") == "user" and isinstance(
+                            msg.get("content"), str
+                        ):
+                            accumulated_text_content = (
+                                f"User requested: {msg.get('content')}"
+                            )
                             break
-            
+
             # Get the agent's core instructions for context but without formatting
             agent_instructions = self.instructions.strip() if self.instructions else ""
-            
+
             # Get context as clean dictionary
             context_dict = self._get_context_as_dict(run_time_context)
             context_str = ""
@@ -1726,7 +1748,7 @@ class Agent(Generic[CtxType, OutType]):
                 )
                 return cast(OutType, structured_output_instance)
             except Exception as e_final_struct:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Error generating final structured output of type {target_output_type.__name__}: {e_final_struct}. Falling back to string representation of accumulated content.",
                     exc_info=True,
                 )
@@ -1736,7 +1758,7 @@ class Agent(Generic[CtxType, OutType]):
                     f"Error creating structured output. Raw content: {accumulated_text_content}",
                 )
 
-        logger.warning(
+        self.logger.warning(
             f"Agent '{self.name}': Unsupported output_type '{target_output_type}' for final generation. Returning raw accumulated content as string."
         )
         return cast(OutType, accumulated_text_content)
@@ -1920,7 +1942,7 @@ class Agent(Generic[CtxType, OutType]):
         )
 
         if tool_names_to_force_execute:
-            logger.info(
+            self.logger.info(
                 f"Agent '{self.name}': Forcing execution of tools: {', '.join(tool_names_to_force_execute)}"
             )
             initial_messages_for_tool_forcing = [
@@ -2022,7 +2044,7 @@ class Agent(Generic[CtxType, OutType]):
                         for tool_res_msg in tool_result_messages:
                             yield tool_res_msg
                 except Exception as e_force_tool_exec:
-                    logger.error(
+                    self.logger.error(
                         f"Agent '{self.name}': Error during forced execution of tool {tool_instance.name}: {e_force_tool_exec}",
                         exc_info=True,
                     )
@@ -2076,7 +2098,7 @@ class Agent(Generic[CtxType, OutType]):
 
         while current_step_count < run_config.max_steps and not agent_operation_ended:
             current_step_count += 1
-            logger.info(
+            self.logger.info(
                 f"Agent '{self.name}' starting main execution step {current_step_count}"
             )
 
@@ -2430,11 +2452,11 @@ class Agent(Generic[CtxType, OutType]):
                                                     "summary_and_final_thoughts"
                                                 )
                                             except json.JSONDecodeError:
-                                                logger.warning(
+                                                self.logger.warning(
                                                     f"Agent '{self.name}': Could not parse arguments for finalize_response (summary expected): {tc['function']['arguments']}"
                                                 )
                                         else:
-                                            logger.info(
+                                            self.logger.info(
                                                 f"Agent '{self.name}': finalize_response called (parameter-less). No summary to extract from args."
                                             )
                                         break  # Found finalize_response
@@ -2453,7 +2475,7 @@ class Agent(Generic[CtxType, OutType]):
                                 ) + assistant_content_generated_this_step
                             # Note: tool_calls_generated_this_step is already populated if tool_calls exist
                     else:
-                        logger.warning(
+                        self.logger.warning(
                             f"Agent '{self.name}': LLM call in step {current_step_count} returned an unexpected response type: {type(llm_completion_response)}"
                         )
                         message_history.append(
@@ -2492,7 +2514,7 @@ class Agent(Generic[CtxType, OutType]):
                         for tc in tool_calls_generated_this_step
                     ):
                         agent_operation_ended = True
-                        logger.info(
+                        self.logger.info(
                             f"Agent '{self.name}' ending operation via 'finalize_response' tool call."
                         )
 
@@ -2509,13 +2531,13 @@ class Agent(Generic[CtxType, OutType]):
                         and assistant_content_generated_this_step
                         and current_step_count == 1
                     ):
-                        logger.info(
+                        self.logger.info(
                             f"Agent '{self.name}' ending operation after first response since no finalize_response tool is available"
                         )
                         agent_operation_ended = True
 
             except Exception as e_llm_step:
-                logger.error(
+                self.logger.error(
                     f"Agent '{self.name}': Error during LLM interaction in step {current_step_count}: {e_llm_step}",
                     exc_info=True,
                 )
@@ -2529,7 +2551,7 @@ class Agent(Generic[CtxType, OutType]):
                 if is_streaming_run:
                     yield {"error": f"LLM step failed: {e_llm_step}"}
 
-            logger.debug(
+            self.logger.debug(
                 f"Agent '{self.name}' at step {current_step_count}, agent_operation_ended status before break check: {agent_operation_ended}"
             )
             if agent_operation_ended:
@@ -2583,7 +2605,7 @@ class Agent(Generic[CtxType, OutType]):
                     accumulated_text_for_final_output,
                 ):  # type: ignore
                     agent_operation_ended = True
-                    logger.info(
+                    self.logger.info(
                         f"Agent '{self.name}' ending operation based on selective decision."
                     )
 
@@ -2594,7 +2616,7 @@ class Agent(Generic[CtxType, OutType]):
 
         # --- Final Context Update (After Main Loop) ---
         if run_config.update_context_after_response and current_run_context is not None:
-            logger.info(f"Agent '{self.name}': Performing final context update.")
+            self.logger.info(f"Agent '{self.name}': Performing final context update.")
             final_content_for_context_update = accumulated_text_for_final_output or (
                 message_history[-1].get("content", "") if message_history else ""
             )  # type: ignore
@@ -2748,7 +2770,7 @@ class Agent(Generic[CtxType, OutType]):
 
         if final_response_from_run is None:
             # This path should ideally not be hit if _run_or_stream is correct for non-streaming
-            logger.error(
+            self.logger.error(
                 f"Agent '{self.name}' non-streaming run unexpectedly did not produce a final AgentResponse."
             )
             # Provide a minimal empty response
@@ -2757,7 +2779,9 @@ class Agent(Generic[CtxType, OutType]):
 
             if not existing_messages:
                 existing_messages = (
-                    message_history if "message_history" in locals() else message_history
+                    message_history
+                    if "message_history" in locals()
+                    else message_history
                 )
 
             return AgentResponse(
@@ -2915,3 +2939,76 @@ class Agent(Generic[CtxType, OutType]):
 
 
 # -----------------------------------------------------------------------------
+
+
+def create_agent(
+    name: str = "Agent",
+    instructions: str = "",
+    planning: bool = False,
+    reflection: bool = False,
+    context: Optional[CtxType] = None,
+    output_type: Optional[Type[OutType]] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    max_steps: int = 10,
+    iterative_output: bool = False,
+    iterative_context: bool = False,
+    force_tools: bool = False,
+    end_strategy: AgentEndStrategy = "full",
+    end_instructions: Optional[str] = None,
+    context_strategy: AgentContextStrategy = "selective",
+    context_instructions: Optional[str] = None,
+    update_context_before_response: Optional[bool] = None,
+    update_context_after_response: bool = False,
+    add_context_to_prompt: bool = True,
+    add_tools_to_prompt: bool = True,
+    keep_intermediate_steps: bool = True,
+    persona_override_intermediate_steps: bool = True,
+    prompt_template: Optional[AgentPromptTemplate] = None,
+    save_history: Optional[bool] = None,
+    show_context: Optional[bool] = None,
+    verbose: bool = False,
+) -> Agent[CtxType, OutType]:
+    """
+    Creates a new agent with the given parameters and
+    strategy settings.
+
+    Parameters:
+        - name (str): The name of the agent.
+        - instructions (str): The base instructions for this agent. This string can include
+              variables for valid keys within any object passed within the `context` parameter, which
+              will be auto-formatted on runtime.
+        - planning (bool): Enables LLM based planning before each step this agent executes.
+        - reasoning (bool): Enables LLM based reflection after each step this agent executes.
+        - context (Optional[CtxType]): A dictionary, Pydantic model, or dataclass instance
+              representing the context in which this agent will operate. Agents are able to automatically
+              update their context based on the conversation history, and can use this context to inform
+              their planning and reflection processes.
+        - output_type (Optional[Type[OutType]]): The type of the output for this agent.
+        - model (ModelParam): The model to use for this agent.
+        - model_params (Optional[Params]): The parameters to use for this agent.
+        - max_steps (int): The maximum number of steps this agent *CAN* execute in a single run
+        - iterative_output (bool): If True, the agent will produce an iterative output.
+        - iterative_context (bool): If True, the agent will produce an iterative context.
+        - force_tools (bool): If True, the agent will force the execution of the tools.
+        - end_strategy (AgentEndStrategy): The strategy to use for the end of the agent.
+        - end_instructions (Optional[str]): Additional instructions to add during the end 'output' generation phase of
+            an agent's run.
+        - context_strategy (AgentContextStrategy): The strategy to use for the context of the agent.
+        - context_instructions (Optional[str]): Additional instructions to include when an agent is updating context
+            variables.
+        - update_context_before_response (Optional[bool]): If True, the agent will update its context before
+            generating a response.
+        - update_context_after_response (bool): If True, the agent will update its context after
+            generating a response.
+        - add_context_to_prompt (bool): If True, the agent will add its context to the prompt.
+        - add_tools_to_prompt (bool): If True, the agent will add its tools to the prompt.
+        - keep_intermediate_steps (bool): If True, the agent will keep the intermediate steps within its conversation history (planning
+            and reflection steps / context updates).
+        - persona_override_intermediate_steps (bool): If True, the agent will override the intermediate steps with the
+            persona's intermediate steps.
+        - prompt_template (Optional[AgentPromptTemplate]): The prompt template to use for this agent.
+        - save_history (Optional[bool]): If True, the agent will save its history.
+        - show_context (Optional[bool]): If True, the agent will show its context within its main generations.
+        - verbose (bool): If True, the agent will print verbose output.
+    """
