@@ -5,8 +5,8 @@ Contains tests for the MockAI class and mock_completion function.
 """
 
 import pytest
-from chatspec.mock import mock_completion
-from chatspec._utils import _StreamPassthrough
+from prompted._create.mock import mock_completion
+from prompted._utils.fn import _StreamPassthrough
 
 
 def test_mock_completion_basic():

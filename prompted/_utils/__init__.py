@@ -1,8 +1,8 @@
 """
-💬 chatspec.utils
+💬 prompted.utils
 
 Contains the various utility functions & resources defined throughout
-the `chatspec` package, with scoped classes for a simpler & modular
+the `prompted` package, with scoped classes for a simpler & modular
 namespace & usage.
 """
 
@@ -57,9 +57,17 @@ def __all__() -> List[str]:
 class Utils:
     """
     Contains the various utility functions & resources defined throughout
-    the `chatspec` package, with scoped classes for a simpler & modular
+    the `prompted` package, with scoped classes for a simpler & modular
     namespace & usage.
     """
+
+    from .cls import (
+        CompletionsUtils,
+        MessagesUtils,
+        ToolsUtils,
+        PydanticUtils,
+        MarkdownUtils,
+    )
 
     completions = CompletionsUtils
     messages = MessagesUtils

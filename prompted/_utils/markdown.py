@@ -1,5 +1,5 @@
 """
-## 💭 chatspec.markdown
+## 💭 prompted.markdown
 
 Contains the `markdownify` function, a utility for cleanly formatting any object
 into a markdown text string or code block. Additionally, contains the
@@ -14,7 +14,7 @@ from pydantic import BaseModel
 from typing import Any, Generic, Optional, TypeVar
 from typing_extensions import TypedDict
 
-from .utils import _make_hashable, logger, _cached
+from .fn import _make_hashable, logger, _cached
 
 __all__ = (
     "MarkdownObject",
@@ -40,7 +40,7 @@ class MarkdownConfig(TypedDict, total=False):
     """
     If `True`, the value will be rendered as markdown.
     
-    *See `chatspec.utils.markdownify()` for the method that powers this feature.*
+    *See `prompted.utils.markdownify()` for the method that powers this feature.*
     """
     code_block: bool
     """

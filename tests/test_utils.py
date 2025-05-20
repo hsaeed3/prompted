@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 from dataclasses import dataclass
 from typing import List, Optional, Literal
 
-import chatspec
-from chatspec._utils.fn import (
+import prompted
+from prompted._utils.fn import (
     is_completion,
     is_stream,
     is_message,

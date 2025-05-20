@@ -1,9 +1,9 @@
 """
-💬 chatspec.utils.cls
+💬 prompted.utils.cls
 
 Contains the class export utilities used within the
-`chatspec` package. This is used to modularize the
-various utilities defined within `chatspec.utils.fn`.
+`prompted` package. This is used to modularize the
+various utilities defined within `prompted.utils.fn`.
 """
 
 __all__ = [

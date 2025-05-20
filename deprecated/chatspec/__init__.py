@@ -28,7 +28,7 @@ _setup_logging()
 if TYPE_CHECKING:
     # Import everything here for type checking and IDE support
     from ._utils import Utils as utils
-    from .mock import (
+    from ...prompted._create.mock import (
         mock_completion,
         mock_embedding,
         amock_completion,

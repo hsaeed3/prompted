@@ -22,7 +22,7 @@ from typing import (
     overload,
     get_args,
 )
-from .types import (
+from ..types.chat_completions import (
     Completion,
     CompletionChunk,
     CompletionMessage,
@@ -31,7 +31,7 @@ from .types import (
     CompletionToolCall,
     Embedding,
 )
-from .params import (
+from ..types.chat_completions_params import (
     Params,
     ModelParam,
     MessagesParam,
@@ -47,7 +47,7 @@ from .params import (
     ResponseFormatParam,
     PredictionParam,
 )
-from ._utils.fn import (
+from .._utils.fn import (
     logger,
     ChatSpecError,
     # methods

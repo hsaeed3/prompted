@@ -33,7 +33,7 @@ from typing import (
     get_type_hints,
     Iterator,
 )
-from ..types import (
+from ..types.chat_completions import (
     Completion,
     CompletionChunk,
     CompletionMessage,
