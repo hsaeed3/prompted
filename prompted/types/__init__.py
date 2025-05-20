@@ -13,6 +13,7 @@ from typing import Any, Dict, Tuple, TYPE_CHECKING
 if TYPE_CHECKING:
     from .chat_completions import *
     from .chat_completions_params import *
+    from .instructor import InstructorModeParam
 
 __all__ = [
     "FunctionParameters",
@@ -91,8 +92,10 @@ IMPORT_MAP : Dict[str, Tuple[str, str]] = {
     "Embedding": (".chat_completions", "Embedding"),
     "EmbeddingsUsage": (".chat_completions", "EmbeddingsUsage"),
 
-    # chat completions params
-    "InstructorModeParam": (".chat_completions_params", "InstructorModeParam"),
+    # Instructor
+    "InstructorModeParam": (".instructor", "InstructorModeParam"),
+
+    # Chat completions params
     "MessagesParam": (".chat_completions_params", "MessagesParam"), 
     "ChatModel": (".chat_completions_params", "ChatModel"),
     "ModelParam": (".chat_completions_params", "ModelParam"),

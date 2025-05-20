@@ -1,5 +1,5 @@
 """
-💬 prompted.logger
+💬 prompted.common.logger
 """
 
 import logging
@@ -29,7 +29,7 @@ def setup_logging():
     logger = logging.getLogger("prompted")
 
     handler = RichHandler(
-        level=logging.WARNING,  # Set the handler level to DEBUG for testing all levels in __main__ block
+        level=logging.INFO,  # Changed from WARNING to INFO to show all messages
         console=console,  # Use the console instance
         rich_tracebacks=True,  # Enable rich tracebacks for exceptions
         show_time=False,  # Hide the time column
@@ -60,13 +60,16 @@ def verbosity(
 ) -> None:
     logger = logging.getLogger("prompted")
     logger.setLevel(level.upper())
+    # Update all handlers' levels to match
+    for handler in logger.handlers:
+        handler.setLevel(level.upper())
 
 
 if __name__ == "__main__":
     setup_logging()
     logger = logging.getLogger("prompted")
+    verbosity("info")
 
-    logger.setLevel(logging.DEBUG)
     print("Testing logging levels with RichHandler and custom markup:")
     logger.debug("This is a debug message")
     logger.info("This is an info message")

@@ -1,219 +1,34 @@
 """
-## 💭 prompted.markdown
+💬 prompted.utils.formatting
 
-Contains the `markdownify` function, a utility for cleanly formatting any object
-into a markdown text string or code block. Additionally, contains the
-`MarkdownObject` class, a container for objects that can hold their original values
-as well as their markdown or code block representations.
+Contains utilities used for text formatting & rendering.
 """
 
 import json
+import logging
 from dataclasses import is_dataclass, fields as dataclass_fields
 from inspect import getdoc
 from pydantic import BaseModel
-from typing import Any, Generic, Optional, TypeVar
-from typing_extensions import TypedDict
+from typing import Any, Optional
 
-from .fn import _make_hashable, logger, _cached
-
-__all__ = (
-    "MarkdownObject",
-    "MarkdownConfig",
-    "markdownify",
+from ..common.cache import (
+    cached,
+    make_hashable
 )
 
 
-# -----------------------------------------------------------------------------
-# [MarkdownObject & MarkdownParams]
-# -----------------------------------------------------------------------------
+logger = logging.getLogger(__name__)
+
+__all__ = [
+    "format_docstring",
+    "format_to_markdown",
+    "get_type_name",
+]
 
 
-_MarkdownObjectT = TypeVar("_MarkdownObjectT")
-"""
-A type variable representing the type of the value stored within a `MarkdownObject`
-instance.
-"""
-
-
-class MarkdownConfig(TypedDict, total=False):
-    markdown: bool
-    """
-    If `True`, the value will be rendered as markdown.
-    
-    *See `prompted.utils.markdownify()` for the method that powers this feature.*
-    """
-    code_block: bool
-    """
-    If `True`, the value will be rendered as a code block.
-    """
-    # [Markdown Specific Config -- Only Used When `markdown = True`]
-    indent: int
-    """
-    The number of spaces markdown formatting will be indented by. This applies to
-    both code blocks and items rendered as tables or lists.
-    """
-    compact: bool
-    """
-    If `True`, the markdown will be rendered in a more compact format, with less
-    vertical space between items.
-    """
-    show_header: bool
-    """
-    If `True`, the header of the value will be displayed within a markdown text block.
-    """
-    show_types: bool
-    """
-    If `True`, the type of the value will be displayed within a markdown text block.
-    """
-    show_title: bool
-    """
-    If `True`, the title of the value will be displayed within a markdown text block.
-    """
-    show_bullets: bool
-    """
-    If `True`, the value will be rendered with bullet points.
-    """
-    show_docs: bool
-    """
-    If `True`, the documentation string of the value will be displayed within a
-    markdown text block.
-    """
-    bullet_style: str
-    """
-    The style of bullet points to use.
-    """
-    language: str | None
-    """
-    The language to use for code block formatting.
-    """
-
-
-class MarkdownObject(Generic[_MarkdownObjectT]):
-    """
-    A container for easily managing & rendering markdown representations of
-    various objects, while retaining their original values & functionality.
-    """
-
-    config: Optional[MarkdownConfig] = None
-    """
-    The configuration for markdown rendering.
-    """
-    value: _MarkdownObjectT
-    """
-    The original `value` or instance of the object.
-    """
-    markdown: Optional[str] = None
-    """
-    The markdown representation of the object.
-    """
-
-    def __init__(
-        self,
-        value: _MarkdownObjectT,
-        indent: int = 0,
-        code_block: bool = False,
-        compact: bool = False,
-        show_types: bool = True,
-        show_title: bool = True,
-        show_bullets: bool = True,
-        show_docs: bool = True,
-        bullet_style: str = "-",
-        language: Optional[str] = None,
-        show_header: bool = True,
-        config: Optional[MarkdownConfig] = None,
-    ) -> None:
-        """
-        Initializes the MarkdownObject with a given value and optional configuration.
-        Immediately updates the markdown representation.
-        """
-        self.value = value
-        self.config = config or {
-            "indent": indent,
-            "code_block": code_block,
-            "compact": compact,
-            "show_types": show_types,
-            "show_title": show_title,
-            "show_bullets": show_bullets,
-            "show_docs": show_docs,
-            "bullet_style": bullet_style,
-            "language": language,
-            "show_header": show_header,
-        }
-        self.markdown = None
-        self.update()
-
-    def update(
-        self,
-        indent: Optional[int] = None,
-        code_block: Optional[bool] = None,
-        compact: Optional[bool] = None,
-        show_types: Optional[bool] = None,
-        show_title: Optional[bool] = None,
-        show_bullets: Optional[bool] = None,
-        show_docs: Optional[bool] = None,
-        bullet_style: Optional[str] = None,
-        language: Optional[str] = None,
-        show_header: Optional[bool] = None,
-        config: Optional[MarkdownConfig] = None,
-    ) -> None:
-        """
-        Updates the markdown representation using the `markdownify` function.
-        If a configuration is provided, it applies those parameters; otherwise, defaults are used.
-        """
-        config = config or self.config
-        self.markdown = markdownify(
-            self.value,
-            indent=indent
-            if indent is not None
-            else config.get("indent", 0),
-            code_block=code_block
-            if code_block is not None
-            else config.get("code_block", False),
-            compact=compact
-            if compact is not None
-            else config.get("compact", False),
-            show_types=show_types
-            if show_types is not None
-            else config.get("show_types", True),
-            show_title=show_title
-            if show_title is not None
-            else config.get("show_title", True),
-            show_bullets=show_bullets
-            if show_bullets is not None
-            else config.get("show_bullets", True),
-            show_docs=show_docs
-            if show_docs is not None
-            else config.get("show_docs", True),
-            bullet_style=bullet_style
-            if bullet_style is not None
-            else config.get("bullet_style", "-"),
-            language=language
-            if language is not None
-            else config.get("language", None),
-            show_header=show_header
-            if show_header is not None
-            else config.get("show_header", True),
-        )
-
-    def __str__(self) -> str:
-        """
-        Returns the markdown representation when the object is converted to a string.
-        """
-        return self.markdown or str(self.value)
-
-    def __repr__(self) -> str:
-        """
-        Returns a developer-friendly representation of the MarkdownObject.
-        """
-        return (
-            f"MarkdownObject(value={self.value!r}, "
-            f"markdown={self.markdown!r})"
-        )
-
-
-# -----------------------------------------------------------------------------
-# [.markdownify()]
-# -----------------------------------------------------------------------------
+# ------------------------------------------------------------------------
+# MARKDOWN : HELPERS
+# ------------------------------------------------------------------------
 
 
 def _get_field_description(field_info: Any) -> Optional[str]:
@@ -241,7 +56,7 @@ def _get_field_description(field_info: Any) -> Optional[str]:
         return None
 
 
-def _format_docstring(
+def format_docstring(
     doc_dict: dict, prefix: str = "", compact: bool = False
 ) -> str:
     """Format parsed docstring into markdown.
@@ -298,7 +113,7 @@ def _format_docstring(
         return str(doc_dict)
 
 
-@_cached(lambda cls: _make_hashable(cls) if cls else "")
+@cached(lambda cls: make_hashable(cls) if cls else "")
 def get_type_name(cls: Any) -> str:
     """Get a clean type name for display"""
     # Handle None type
@@ -367,11 +182,11 @@ def _parse_docstring(obj: Any) -> Optional[dict]:
 
 
 # -----------------------------------------------------------------------------
-# Public API: markdownify
+# Public API: format_to_markdown
 # -----------------------------------------------------------------------------
 
 
-def markdownify(
+def format_to_markdown(
     target: Any,
     indent: int = 0,
     code_block: bool = False,
@@ -383,6 +198,7 @@ def markdownify(
     bullet_style: str = "-",
     language: str | None = None,
     show_header: bool = True,
+    schema: bool = False,
     _visited: set[int] | None = None,
 ) -> str:
     """
@@ -405,106 +221,14 @@ def markdownify(
         bullet_style (str, optional): The style of bullet points to use. Defaults to "-".
         language (str | None, optional): The language for code block formatting. Defaults to None.
         show_header (bool, optional): Whether to include the header of the object. Defaults to True.
+        schema (bool, optional): If True, only show schema. If False, show values for initialized objects. Defaults to False.
         _visited (set[int] | None, optional): A set of visited object IDs to avoid circular references. Defaults to None.
 
     Returns:
         str: The formatted markdown string.
-
-    Examples:
-        ```python
-        from pydantic import BaseModel
-
-        class ExampleModel(BaseModel):
-            name: str
-            value: int
-
-        example_instance = ExampleModel(name="example", value=42)
-
-        # Example with indent
-        markdown_indent = markdownify(example_instance, indent=1)
-        print(markdown_indent)
-        # Output:
-        #   - **ExampleModel**:
-        #     - name: str
-        #     - value: int
-
-        # Example with code_block
-        markdown_code_block = markdownify(example_instance, code_block=True)
-        print(markdown_code_block)
-        # Output:
-        # ```
-        # {
-        #   "name": "example",
-        #   "value": 42
-        # }
-        # ```
-
-        # Example with compact
-        markdown_compact = markdownify(example_instance, compact=True)
-        print(markdown_compact)
-        # Output:
-        # - **ExampleModel**: name: str, value: int
-
-        # Example with show_types
-        markdown_show_types = markdownify(example_instance, show_types=False)
-        print(markdown_show_types)
-        # Output:
-        # - **ExampleModel**:
-        #   - name
-        #   - value
-
-        # Example with show_title
-        markdown_show_title = markdownify(example_instance, show_title=False)
-        print(markdown_show_title)
-        # Output:
-        # - name: str
-        # - value: int
-
-        # Example with show_bullets
-        markdown_show_bullets = markdownify(example_instance, show_bullets=False)
-        print(markdown_show_bullets)
-        # Output:
-        # **ExampleModel**:
-        # name: str
-        # value: int
-
-        # Example with show_docs
-        markdown_show_docs = markdownify(example_instance, show_docs=False)
-        print(markdown_show_docs)
-        # Output:
-        # - **ExampleModel**:
-        #   - name: str
-        #   - value: int
-
-        # Example with bullet_style
-        markdown_bullet_style = markdownify(example_instance, bullet_style="*")
-        print(markdown_bullet_style)
-        # Output:
-        # * **ExampleModel**:
-        #   * name: str
-        #   * value: int
-
-        # Example with language
-        markdown_language = markdownify(example_instance, code_block=True, language="python")
-        print(markdown_language)
-        # Output:
-        # ```python
-        # {
-        #   "name": "example",
-        #   "value": 42
-        # }
-        # ```
-
-        # Example with show_header
-        markdown_show_header = markdownify(example_instance, show_header=False)
-        print(markdown_show_header)
-        # Output:
-        # - name: str
-        # - value: int
-        ```
     """
 
-    @_cached(
+    @cached(
         lambda target,
         indent=0,
         code_block=False,
@@ -516,7 +240,8 @@ def markdownify(
         bullet_style="-",
         language=None,
         show_header=True,
-        _visited=None: _make_hashable(
+        schema=False,
+        _visited=None: make_hashable(
             (
                 target,
                 indent,
@@ -529,11 +254,12 @@ def markdownify(
                 bullet_style,
                 language,
                 show_header,
+                schema,
                 _visited,
             )
         )
     )
-    def _markdownify(
+    def _format_to_markdown(
         target: Any,
         indent: int = 0,
         code_block: bool = False,
@@ -545,6 +271,7 @@ def markdownify(
         bullet_style: str = "-",
         language: str | None = None,
         show_header: bool = True,
+        schema: bool = False,
         _visited: set[int] | None = None,
     ) -> str:
         visited = _visited or set()
@@ -576,7 +303,7 @@ def markdownify(
                 if code_block:
                     data = (
                         target.model_dump()
-                        if not is_class
+                        if not is_class and not schema
                         else {
                             field: f"{get_type_name(field_info.annotation)}"
                             if show_types
@@ -587,7 +314,7 @@ def markdownify(
                     # Format JSON with proper indentation
                     json_str = (
                         json.dumps(data, indent=2)
-                        if not is_class
+                        if not is_class and not schema
                         else "{\n"
                         + "\n".join(
                             f'  "{k}": "{v}"' for k, v in data.items()
@@ -606,7 +333,7 @@ def markdownify(
                     try:
                         doc_dict = _parse_docstring(target)
                         if doc_dict:
-                            doc_md = _format_docstring(
+                            doc_md = format_docstring(
                                 doc_dict, prefix + "  ", compact
                             )
                             if doc_md:
@@ -629,6 +356,8 @@ def markdownify(
                             if show_types
                             else key
                         ]
+                        if not schema and not is_class:
+                            field_parts.append(f"= {getattr(target, key)}")
                         field_lines.append(", ".join(field_parts))
                     else:
                         field_parts = [
@@ -639,6 +368,8 @@ def markdownify(
                                 else ""
                             )
                         ]
+                        if not schema and not is_class:
+                            field_parts.append(f" = {getattr(target, key)}")
                         field_lines.extend(field_parts)
 
                 if compact and field_lines:
@@ -660,6 +391,11 @@ def markdownify(
                                 + (
                                     f": {get_type_name(field_info.annotation)}"
                                     if show_types
+                                    else ""
+                                )
+                                + (
+                                    f" = {getattr(target, key)}"
+                                    if not schema and not is_class
                                     else ""
                                 )
                                 for key, field_info in fields
@@ -704,7 +440,7 @@ def markdownify(
             item_prefix = prefix + ("  " if not compact else "")
 
             items = [
-                f"{item_prefix}{bullet}{markdownify(item, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
+                f"{item_prefix}{bullet}{format_to_markdown(item, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, schema, visited.copy())}"
                 for item in target
             ]
             return (
@@ -732,7 +468,7 @@ def markdownify(
             item_prefix = prefix + ("  " if not compact else "")
 
             items = [
-                f"{item_prefix}{bullet}{key}: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
+                f"{item_prefix}{bullet}{key}: {format_to_markdown(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, schema, visited.copy())}"
                 for key, value in target.items()
             ]
             return (
@@ -757,7 +493,7 @@ def markdownify(
                 for f in dataclass_fields(target)
             ]
             items = [
-                f"{item_prefix}{bullet}{name}: {markdownify(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, visited.copy())}"
+                f"{item_prefix}{bullet}{name}: {format_to_markdown(value, indent + indent_step, code_block, compact, show_types, show_title, show_bullets, show_docs, bullet_style, language, show_header, schema, visited.copy())}"
                 for name, value in fields_list
             ]
             return (
@@ -768,7 +504,7 @@ def markdownify(
 
         return str(target)
 
-    return _markdownify(
+    return _format_to_markdown(
         target,
         indent,
         code_block,
@@ -780,5 +516,6 @@ def markdownify(
         bullet_style,
         language,
         show_header,
+        schema,
         _visited,
     )

@@ -1,12 +1,10 @@
 [project]
-
 # ------------------------------------------------------------------------
 # Base Metadata
 # ------------------------------------------------------------------------
 
-# prompted
 name = "prompted"
-version = "0.0.8"
+version = "0.0.10"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [
@@ -27,17 +25,30 @@ dependencies = [
 ]
 
 # ------------------------------------------------------------------------
-# Dependency Groups
+# Optional Dependencies (Extras) - For the PUBLISHED PACKAGE
 # ------------------------------------------------------------------------
+[project.optional-dependencies]
+create = [
+    "openai-agents>=0.0.15",
+    "litellm>=1.61.3",
+    "instructor[litellm]>=1.8.2",
+]
 
 
+# ------------------------------------------------------------------------
+# Dependency Groups - For LOCAL DEVELOPMENT/TESTING
+# ------------------------------------------------------------------------
+# These are NOT considered optional dependencies of your published package.
+# uv sync will install 'dev' by default.
+# To install other groups, use 'uv sync --group <group-name>'.
+# To install all groups, use 'uv sync --all-groups'.
 [dependency-groups]
 dev = [
     # core dev tools
     # i love astral.sh
     "ruff",
     "uv",
-    "rich",
+    "rich", # Already in project.dependencies, but good to include here for explicit dev env
     "twine",
     # tests
     "pytest",
@@ -47,29 +58,29 @@ dev = [
     "ipython",
     # openai is used for testing
     "openai>=1.52.0,<2.0.0",
-    "litellm"
-]
-client = [
-    "instructor[litellm]",
-    "litellm"
-]
-
-
-[project.optional-dependencies]
-client = [
-    "instructor[litellm]",
-    "litellm"
+    "litellm" # Already in 'create' extra, but included here if you need it for general dev without the 'create' extra.
 ]
 
 
 # ------------------------------------------------------------------------
-# Build System & Tools
+# Build System & Tools (Hatch specific)
 # ------------------------------------------------------------------------
 
 
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
 build-backend = "hatchling.build"
+
+[tool.hatch.version]
+source = "uv-dynamic-versioning"
+
+[tool.uv-dynamic-versioning]
+vcs = "git"
+style = "pep440"
+bump = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["prompted"]
 
 
 # == addition for zed IDE's (could be removed in future) ==
@@ -107,6 +118,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 # strings in nanograph are double quoted
 quote-style = "double"
 # indent using spaces not tabs for consistency & more robust formatting
+# this will be ignored by ruff v0.3.0+
 indent-style = "space"
 # respect training commas
 skip-magic-trailing-comma = false
