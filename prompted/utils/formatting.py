@@ -9,10 +9,18 @@ import logging
 from dataclasses import is_dataclass, fields as dataclass_fields
 from inspect import getdoc
 from pydantic import BaseModel
-from typing import Any, Optional, Union, get_origin, get_args
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Union,
+    get_args,
+)
 import typing_inspect as ti
 
 from ..common.cache import cached, make_hashable
+from ..types.chat_completions import Message
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +29,8 @@ __all__ = [
     "format_docstring",
     "format_to_markdown",
     "get_type_name",
+    "format_messages",
+    "format_system_prompt",
 ]
 
 
@@ -848,3 +858,105 @@ def format_to_markdown(
         schema,
         _visited,
     )
+
+
+def format_messages(messages: Any) -> List[Message]:
+    """Formats the input into a list of chat completion messages."""
+
+    @cached(lambda messages: make_hashable(messages) if messages else "")
+    def _format_messages(messages: Any) -> List[Message]:
+        try:
+            if isinstance(messages, str):
+                return [{"role": "user", "content": messages}]
+            if not isinstance(messages, list):
+                messages = [messages]
+
+            normalized = []
+            for message in messages:
+                if isinstance(message, dict):
+                    # Create a new dict to avoid modifying the original
+                    normalized.append({**message})
+                elif hasattr(message, "model_dump"):
+                    normalized.append(message.model_dump())
+                else:
+                    raise ValueError(f"Invalid message format: {message}")
+            return normalized
+        except Exception as e:
+            logger.debug(f"Error normalizing messages: {e}")
+            raise
+
+    return _format_messages(messages)
+
+
+def format_system_prompt(
+    messages: List[Message],
+    system_prompt: Optional[Union[str, Dict[str, Any]]] = None,
+    blank: bool = False,
+) -> List[Message]:
+    """
+    Normalizes a message thread by gathering all system messages at the start.
+
+    Args:
+        messages: List of messages to normalize.
+        system_prompt: Optional system prompt to prepend.
+        blank: If True, ensures at least one system message exists (even empty).
+
+    Returns:
+        A normalized list of messages.
+    """
+
+    @cached(
+        lambda messages, system_prompt=None, blank=False: make_hashable(
+            (messages, system_prompt, blank)
+        )
+    )
+    def _format_system_prompt(
+        messages: Any,
+        system_prompt: Optional[Union[str, Dict[str, Any]]] = None,
+        blank: bool = False,
+    ) -> List[Message]:
+        try:
+            system_messages = [
+                msg for msg in messages if msg.get("role") == "system"
+            ]
+            other_messages = [
+                msg for msg in messages if msg.get("role") != "system"
+            ]
+
+            if system_prompt:
+                if isinstance(system_prompt, str):
+                    new_system = {
+                        "role": "system",
+                        "content": system_prompt,
+                    }
+                elif isinstance(system_prompt, dict):
+                    new_system = {**system_prompt, "role": "system"}
+                    if "content" not in new_system:
+                        raise ValueError(
+                            "System prompt dict must contain 'content' field"
+                        )
+                else:
+                    raise ValueError(
+                        "System prompt must be string or dict"
+                    )
+                system_messages.insert(0, new_system)
+
+            if not system_messages and blank:
+                system_messages = [{"role": "system", "content": ""}]
+            elif not system_messages:
+                return messages
+
+            if len(system_messages) > 1:
+                combined_content = "\n".join(
+                    msg["content"] for msg in system_messages
+                )
+                system_messages = [
+                    {"role": "system", "content": combined_content}
+                ]
+
+            return system_messages + other_messages
+        except Exception as e:
+            logger.debug(f"Error normalizing system prompt: {e}")
+            raise
+
+    return _format_system_prompt(messages, system_prompt, blank)

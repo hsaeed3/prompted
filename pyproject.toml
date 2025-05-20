@@ -29,7 +29,6 @@ dependencies = [
 # ------------------------------------------------------------------------
 [project.optional-dependencies]
 create = [
-    "openai-agents>=0.0.15",
     "litellm>=1.61.3",
     "instructor[litellm]>=1.8.2",
 ]
