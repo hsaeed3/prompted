@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------
 
 name = "prompted"
-version = "0.0.10"
+version = "0.0.11"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [

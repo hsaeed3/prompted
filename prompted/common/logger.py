@@ -29,7 +29,7 @@ def setup_logging():
     logger = logging.getLogger("prompted")
 
     handler = RichHandler(
-        level=logging.INFO,  # Changed from WARNING to INFO to show all messages
+        level=logging.WARNING,  # Changed from WARNING to INFO to show all messages
         console=console,  # Use the console instance
         rich_tracebacks=True,  # Enable rich tracebacks for exceptions
         show_time=False,  # Hide the time column

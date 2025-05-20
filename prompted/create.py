@@ -621,45 +621,6 @@ class Create:
             raise
 
     # --- from_prompt ---
-    @overload
-    @staticmethod
-    def from_prompt(
-        prompt: PromptType,
-        instructions: Optional[str] = None,
-        model: Union[
-            ModelParam, List[ModelParam]
-        ] = "openai/gpt-4o-mini",  # Default from foundry
-        model_params: Optional[Params] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-    ) -> LiteLLMStream: ...
-
-    @overload
-    @staticmethod
-    def from_prompt(
-        prompt: PromptType,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-    ) -> str: ...
-
-    @overload
-    @staticmethod
-    def from_prompt(
-        prompt: PromptType,
-        instructions: Optional[str] = None,
-        model: List[ModelParam] = ["openai/gpt-4o-mini"],  # type: ignore
-        model_params: Optional[Params] = None,
-        stream: Literal[
-            False
-        ] = False,  # Streaming not supported for list of models in this way
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-    ) -> List[str]: ...
 
     @staticmethod
     def from_prompt(
@@ -748,41 +709,6 @@ class Create:
                 raise
 
     # --- async_from_prompt (mirroring from_prompt) ---
-    @overload
-    @staticmethod
-    async def async_from_prompt(
-        prompt: PromptType,
-        instructions: Optional[str] = None,
-        model: Union[ModelParam, List[ModelParam]] = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-    ) -> LiteLLMStream: ...
-
-    @overload
-    @staticmethod
-    async def async_from_prompt(
-        prompt: PromptType,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-    ) -> str: ...
-
-    @overload
-    @staticmethod
-    async def async_from_prompt(
-        prompt: PromptType,
-        instructions: Optional[str] = None,
-        model: List[ModelParam] = ["openai/gpt-4o-mini"],  # type: ignore
-        model_params: Optional[Params] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-    ) -> List[str]: ...
 
     @staticmethod
     async def async_from_prompt(
@@ -861,79 +787,6 @@ class Create:
                 raise
 
     # --- from_schema ---
-    @overload
-    @staticmethod
-    def from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[StructuredReturnType]: ...  # Type of schema
-
-    @overload
-    @staticmethod
-    def from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> StructuredReturnType: ...  # Type of schema
-
-    @overload
-    @staticmethod
-    def from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[
-            True
-        ] = True,  # stream of List[Schema] yields Schema
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[StructuredReturnType]: ...
-
-    @overload
-    @staticmethod
-    def from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> List[StructuredReturnType]: ...
 
     @staticmethod
     def from_schema(
@@ -1163,77 +1016,6 @@ class Create:
             raise
 
     # --- async_from_schema (mirroring from_schema) ---
-    @overload
-    @staticmethod
-    async def async_from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[StructuredReturnType]: ...
-
-    @overload
-    @staticmethod
-    async def async_from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> StructuredReturnType: ...
-
-    @overload
-    @staticmethod
-    async def async_from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[StructuredReturnType]: ...
-
-    @overload
-    @staticmethod
-    async def async_from_schema(
-        schema: SchemaType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> List[StructuredReturnType]: ...
 
     @staticmethod
     async def async_from_schema(
@@ -1431,77 +1213,6 @@ class Create:
             raise
 
     # --- from_options ---
-    @overload
-    @staticmethod
-    def from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[
-        BaseModel
-    ]: ...  # Returns Iterable of a model with 'selection' field
-
-    @overload
-    @staticmethod
-    def from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> BaseModel: ...  # Returns a model with 'selection' field
-
-    @overload
-    @staticmethod
-    def from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[
-        BaseModel
-    ]: ...  # Iterable of models with 'selection' field
-
-    @overload
-    @staticmethod
-    def from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> List[BaseModel]: ...  # List of models with 'selection' field
 
     @staticmethod
     def from_options(
@@ -1606,73 +1317,6 @@ class Create:
         )
 
     # --- async_from_options (mirroring from_options) ---
-    @overload
-    @staticmethod
-    async def async_from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[BaseModel]: ...
-
-    @overload
-    @staticmethod
-    async def async_from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: Literal[1] = 1,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> BaseModel: ...
-
-    @overload
-    @staticmethod
-    async def async_from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[BaseModel]: ...
-
-    @overload
-    @staticmethod
-    async def async_from_options(
-        options: OptionsType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        n: int = 1,  # n > 1
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> List[BaseModel]: ...
 
     @staticmethod
     async def async_from_options(
@@ -2554,41 +2198,6 @@ class Create:
             return DeltaModel(**updated_values_data)  # type: ignore
 
     # --- from_attributes ---
-    @overload
-    @staticmethod
-    def from_attributes(
-        schema: SchemaType,
-        attributes: AttributeType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[StructuredReturnType]: ...
-
-    @overload
-    @staticmethod
-    def from_attributes(
-        schema: SchemaType,
-        attributes: AttributeType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> List[StructuredReturnType]: ...
 
     @staticmethod
     def from_attributes(
@@ -2856,41 +2465,6 @@ class Create:
         return results  # type: ignore
 
     # --- async_from_attributes (mirroring from_attributes) ---
-    @overload
-    @staticmethod
-    async def async_from_attributes(
-        schema: SchemaType,
-        attributes: AttributeType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[True] = True,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> Iterable[StructuredReturnType]: ...
-
-    @overload
-    @staticmethod
-    async def async_from_attributes(
-        schema: SchemaType,
-        attributes: AttributeType,
-        prompt: Optional[PromptType] = None,
-        instructions: Optional[str] = None,
-        model: ModelParam = "openai/gpt-4o-mini",
-        model_params: Optional[Params] = None,
-        iterative: bool = False,
-        name_override: Optional[str] = None,
-        description_override: Optional[str] = None,
-        stream: Literal[False] = False,
-        existing_messages: Optional[List[Message]] = None,
-        role_for_prompt: MessageRole = "user",
-        mode: InstructorModeParam = "tool_call",
-    ) -> List[StructuredReturnType]: ...
 
     @staticmethod
     async def async_from_attributes(
@@ -3229,15 +2803,10 @@ class Create:
                 docstring = func.__doc__
 
                 # Determine the base prompt
-                base_prompt_parts = (
-                    [docstring]
-                    if docstring
-                    else [
-                        f"Generate output based on the purpose of the function '{func.__name__}'."
-                    ]
-                )
-                base_prompt_parts.append(f"Function name: {func.__name__}")
-
+                base_prompt_parts = []
+                if docstring:
+                    base_prompt_parts.append(docstring)
+                
                 # Include provided arguments in the prompt
                 if provided_args:
                     # Exclude self/cls if they exist and are the first argument
@@ -3255,26 +2824,17 @@ class Create:
                             args_to_show, default=str
                         )
                         base_prompt_parts.append(
-                            f"Provided inputs: {provided_args_str}"
+                            f"Input: {provided_args_str}"
                         )
                     else:
                         logger.debug(
                             "No non-self/cls arguments provided to the decorated function."
                         )
 
-                # Ask the LLM to fill in missing parameters if any
-                # This instruction might be better phrased to guide the LLM to use the provided
-                # args and the function's goal (docstring) to generate the *return value*.
-                # The LLM doesn't necessarily need to explicitly output the missing parameters first.
-                # Let's rephrase: focus on generating the result based on the available info.
-                if missing_params:
-                    missing_params_names = ", ".join(missing_params.keys())
-                    # Instruct the LLM to consider the missing information
-                    base_prompt_parts.append(
-                        f"You need to determine or infer information related to: {missing_params_names} to fulfill the function's purpose."
-                    )
-                    # Add parameter descriptions if available (from docstring or Field) - requires more complex parsing
-                    # For now, just list names.
+                # Add instruction to directly answer the question
+                base_prompt_parts.append(
+                    "Please provide a direct answer to the question above based on the input. Do not explain your reasoning or provide code."
+                )
 
                 final_prompt_str = "\n".join(base_prompt_parts)
                 logger.debug(
@@ -3447,6 +3007,43 @@ def expose_method(method: Callable[..., Any]) -> Callable[..., Any]:
     return wrapper
 
 
+@overload
+def create_from_prompt(
+    prompt: PromptType,
+    instructions: Optional[str] = None,
+    model: Union[
+        ModelParam, List[ModelParam]
+    ] = "openai/gpt-4o-mini",  # Default from foundry
+    model_params: Optional[Params] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+) -> LiteLLMStream: ...
+
+@overload
+def create_from_prompt(
+    prompt: PromptType,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+) -> str: ...
+
+@overload
+def create_from_prompt(
+    prompt: PromptType,
+    instructions: Optional[str] = None,
+    model: List[ModelParam] = ["openai/gpt-4o-mini"],  # type: ignore
+    model_params: Optional[Params] = None,
+    stream: Literal[
+        False
+    ] = False,  # Streaming not supported for list of models in this way
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+) -> List[str]: ...
+
 def create_from_prompt(
     prompt: PromptType,
     instructions: Optional[str] = None,
@@ -3456,6 +3053,32 @@ def create_from_prompt(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
 ) -> Union[str, List[str], LiteLLMStream]:
+    """
+    Generate text from a prompt using an LLM.
+    
+    Args:
+        prompt: The prompt to send to the model. Can be a string, list of messages, or other supported format.
+        instructions: Optional additional instructions to guide the model's response.
+        model: The model to use, either as a string (e.g., "openai/gpt-4o-mini") or a list of models.
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        stream: Whether to stream the response tokens as they're generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+    
+    Returns:
+        A string response, list of responses (if multiple models), or a streaming response object.
+    
+    Examples:
+        >>> create_from_prompt("Tell me a joke about programming")
+        "Why do programmers prefer dark mode? Because light attracts bugs!"
+        
+        >>> create_from_prompt(
+        ...     prompt="Summarize this article",
+        ...     instructions="Keep it under 100 words",
+        ...     model="openai/gpt-4o",
+        ...     model_params={"temperature": 0.7}
+        ... )
+    """
     return expose_method(Create.from_prompt)(
         prompt=prompt,
         instructions=instructions,
@@ -3467,6 +3090,39 @@ def create_from_prompt(
     )
 
 
+@overload
+async def async_create_from_prompt(
+    prompt: PromptType,
+    instructions: Optional[str] = None,
+    model: Union[ModelParam, List[ModelParam]] = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+) -> LiteLLMStream: ...
+
+@overload
+def async_create_from_prompt(
+    prompt: PromptType,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+) -> str: ...
+
+@overload
+def async_create_from_prompt(
+    prompt: PromptType,
+    instructions: Optional[str] = None,
+    model: List[ModelParam] = ["openai/gpt-4o-mini"],  # type: ignore
+    model_params: Optional[Params] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+) -> List[str]: ...
+
 async def async_create_from_prompt(
     prompt: PromptType,
     instructions: Optional[str] = None,
@@ -3476,6 +3132,31 @@ async def async_create_from_prompt(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
 ) -> Union[str, List[str], LiteLLMStream]:
+    """
+    Asynchronously generate text from a prompt using an LLM.
+    
+    Args:
+        prompt: The prompt to send to the model. Can be a string, list of messages, or other supported format.
+        instructions: Optional additional instructions to guide the model's response.
+        model: The model to use, either as a string (e.g., "openai/gpt-4o-mini") or a list of models.
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        stream: Whether to stream the response tokens as they're generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+    
+    Returns:
+        A string response, list of responses (if multiple models), or a streaming response object.
+    
+    Examples:
+        >>> await async_create_from_prompt("Tell me a joke about programming")
+        "Why do programmers prefer dark mode? Because light attracts bugs!"
+        
+        >>> await async_create_from_prompt(
+        ...     prompt=[{"role": "user", "content": "What's the weather like today?"}],
+        ...     model="openai/gpt-4o",
+        ...     stream=True
+        ... )
+    """
     return expose_method(Create.async_from_prompt)(
         prompt=prompt,
         instructions=instructions,
@@ -3486,6 +3167,76 @@ async def async_create_from_prompt(
         role_for_prompt=role_for_prompt,
     )
 
+
+@overload
+def create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[StructuredReturnType]: ...  # Type of schema
+
+@overload
+def create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> StructuredReturnType: ...  # Type of schema
+
+@overload
+def create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[
+        True
+    ] = True,  # stream of List[Schema] yields Schema
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[StructuredReturnType]: ...
+
+@overload
+def create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+    ) -> List[StructuredReturnType]: ...
 
 def create_from_schema(
     schema: SchemaType,
@@ -3506,6 +3257,40 @@ def create_from_schema(
     List[StructuredReturnType],
     Iterable[StructuredReturnType],
 ]:
+    """
+    Generate structured data from a prompt using an LLM according to a Pydantic schema.
+    
+    Args:
+        schema: The Pydantic model class defining the structure of the expected output.
+        prompt: Optional prompt to guide the model's response.
+        instructions: Optional additional instructions to guide the model's response.
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        iterative: Whether to generate the response field by field iteratively.
+        n: Number of responses to generate.
+        name_override: Optional name to use for the schema in the prompt.
+        description_override: Optional description to use for the schema in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A structured response matching the provided schema, a list of responses, or an iterable of responses.
+    
+    Examples:
+        >>> from pydantic import BaseModel
+        >>> class Person(BaseModel):
+        ...     name: str
+        ...     age: int
+        ...     bio: str
+        >>> create_from_schema(
+        ...     schema=Person,
+        ...     prompt="Generate a profile for a software developer",
+        ...     model="openai/gpt-4o"
+        ... )
+        Person(name='Alex Chen', age=32, bio='Full-stack developer with 8 years experience...')
+    """
     return expose_method(Create.from_schema)(
         schema=schema,
         prompt=prompt,
@@ -3522,6 +3307,73 @@ def create_from_schema(
         mode=mode,
     )
 
+@overload
+async def async_create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[StructuredReturnType]: ...
+
+@overload
+async def async_create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> StructuredReturnType: ...
+
+@overload
+async def async_create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[StructuredReturnType]: ...
+
+@overload
+async def async_create_from_schema(
+    schema: SchemaType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> List[StructuredReturnType]: ...
 
 async def async_create_from_schema(
     schema: SchemaType,
@@ -3542,6 +3394,40 @@ async def async_create_from_schema(
     List[StructuredReturnType],
     Iterable[StructuredReturnType],
 ]:
+    """
+    Asynchronously generate structured data from a prompt using an LLM according to a Pydantic schema.
+    
+    Args:
+        schema: The Pydantic model class defining the structure of the expected output.
+        prompt: Optional prompt to guide the model's response.
+        instructions: Optional additional instructions to guide the model's response.
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        iterative: Whether to generate the response field by field iteratively.
+        n: Number of responses to generate.
+        name_override: Optional name to use for the schema in the prompt.
+        description_override: Optional description to use for the schema in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A structured response matching the provided schema, a list of responses, or an iterable of responses.
+    
+    Examples:
+        >>> from pydantic import BaseModel
+        >>> class Person(BaseModel):
+        ...     name: str
+        ...     age: int
+        ...     bio: str
+        >>> await async_create_from_schema(
+        ...     schema=Person,
+        ...     prompt="Generate a profile for a software developer",
+        ...     model="openai/gpt-4o"
+        ... )
+        Person(name='Alex Chen', age=32, bio='Full-stack developer with 8 years experience...')
+    """
     return expose_method(Create.async_from_schema)(
         schema=schema,
         prompt=prompt,
@@ -3571,6 +3457,31 @@ def create_from_function(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Callable[..., Any]:
+    """
+    Create a decorator that transforms a function to use an LLM for its implementation.
+    
+    Args:
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        iterative: Whether to generate structured responses field by field iteratively.
+        n: Number of responses to generate.
+        name_override: Optional name to use for the function in the prompt.
+        description_override: Optional description to use for the function in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A decorator function that transforms the decorated function to use an LLM.
+    
+    Examples:
+        >>> @create_from_function(model="openai/gpt-4o")
+        ... def summarize_text(text: str, max_words: int = 100) -> str:
+        ...     pass
+        >>> 
+        >>> summary = summarize_text("Lorem ipsum dolor sit amet...", max_words=50)
+    """
     return expose_method(Create.from_function)(
         model=model,
         model_params=model_params,
@@ -3584,6 +3495,74 @@ def create_from_function(
         mode=mode,
     )
 
+
+@overload
+def create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[
+    BaseModel
+]: ...  # Returns Iterable of a model with 'selection' field
+
+@overload
+def create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> BaseModel: ...  # Returns a model with 'selection' field
+
+@overload
+def create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[
+    BaseModel
+]: ...  # Iterable of models with 'selection' field
+
+@overload
+def create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> List[BaseModel]: ...  # List of models with 'selection' field
 
 def create_from_options(
     options: OptionsType,
@@ -3599,6 +3578,35 @@ def create_from_options(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Union[BaseModel, List[BaseModel], Iterable[BaseModel]]:
+    """
+    Generate a selection from a set of options using an LLM.
+    
+    Args:
+        options: A set of options for the model to choose from.
+        prompt: Optional prompt to guide the model's selection.
+        instructions: Optional additional instructions to guide the model's selection.
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        n: Number of selections to generate.
+        name_override: Optional name to use for the options schema in the prompt.
+        description_override: Optional description to use for the options schema in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A model containing the selected option, a list of selections, or an iterable of selections.
+    
+    Examples:
+        >>> options = {"red", "green", "blue", "yellow"}
+        >>> create_from_options(
+        ...     options=options,
+        ...     prompt="What color is a banana?",
+        ...     model="openai/gpt-4o"
+        ... )
+        OptionSelection(selection='yellow')
+    """
     return expose_method(Create.from_options)(
         options=options,
         prompt=prompt,
@@ -3614,6 +3622,69 @@ def create_from_options(
         mode=mode,
     )
 
+@overload
+async def async_create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[BaseModel]: ...
+
+@overload
+async def async_create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: Literal[1] = 1,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> BaseModel: ...
+
+@overload
+async def async_create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[BaseModel]: ...
+
+@overload
+async def async_create_from_options(
+    options: OptionsType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    n: int = 1,  # n > 1
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> List[BaseModel]: ...
 
 async def async_create_from_options(
     options: OptionsType,
@@ -3629,6 +3700,35 @@ async def async_create_from_options(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Union[BaseModel, List[BaseModel], Iterable[BaseModel]]:
+    """
+    Asynchronously generate a selection from a set of options using an LLM.
+    
+    Args:
+        options: A set of options for the model to choose from.
+        prompt: Optional prompt to guide the model's selection.
+        instructions: Optional additional instructions to guide the model's selection.
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        n: Number of selections to generate.
+        name_override: Optional name to use for the options schema in the prompt.
+        description_override: Optional description to use for the options schema in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A model containing the selected option, a list of selections, or an iterable of selections.
+    
+    Examples:
+        >>> options = {"red", "green", "blue", "yellow"}
+        >>> await async_create_from_options(
+        ...     options=options,
+        ...     prompt="What color is a banana?",
+        ...     model="openai/gpt-4o"
+        ... )
+        OptionSelection(selection='yellow')
+    """
     return expose_method(Create.async_from_options)(
         options=options,
         prompt=prompt,
@@ -3645,6 +3745,40 @@ async def async_create_from_options(
     )
 
 
+@overload
+def create_from_attributes(
+    schema: SchemaType,
+    attributes: AttributeType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[StructuredReturnType]: ...
+
+@overload
+def create_from_attributes(
+    schema: SchemaType,
+    attributes: AttributeType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> List[StructuredReturnType]: ...
+
 def create_from_attributes(
     schema: SchemaType,
     attributes: AttributeType,
@@ -3660,6 +3794,42 @@ def create_from_attributes(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Union[List[StructuredReturnType], Iterable[StructuredReturnType]]:
+    """
+    Generate structured data focusing on specific attributes using an LLM.
+    
+    Args:
+        schema: The Pydantic model class defining the structure of the expected output.
+        attributes: List of field names or dictionary mapping field names to weights.
+        prompt: Optional prompt to guide the model's response.
+        instructions: Optional additional instructions to guide the model's response.
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        iterative: Whether to generate the response field by field iteratively.
+        name_override: Optional name to use for the schema in the prompt.
+        description_override: Optional description to use for the schema in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A list of structured responses or an iterable of structured responses.
+    
+    Examples:
+        >>> from pydantic import BaseModel
+        >>> class Product(BaseModel):
+        ...     name: str
+        ...     description: str
+        ...     price: float
+        ...     category: str
+        >>> create_from_attributes(
+        ...     schema=Product,
+        ...     attributes=["name", "price"],
+        ...     prompt="Generate a product based on these attributes",
+        ...     model="openai/gpt-4o"
+        ... )
+        [Product(name='Wireless Earbuds', description='', price=79.99, category='')]
+    """
     return expose_method(Create.from_attributes)(
         schema=schema,
         attributes=attributes,
@@ -3676,6 +3846,39 @@ def create_from_attributes(
         mode=mode,
     )
 
+@overload
+async def async_create_from_attributes(
+    schema: SchemaType,
+    attributes: AttributeType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[True] = True,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> Iterable[StructuredReturnType]: ...
+
+@overload
+async def async_create_from_attributes(
+    schema: SchemaType,
+    attributes: AttributeType,
+    prompt: Optional[PromptType] = None,
+    instructions: Optional[str] = None,
+    model: ModelParam = "openai/gpt-4o-mini",
+    model_params: Optional[Params] = None,
+    iterative: bool = False,
+    name_override: Optional[str] = None,
+    description_override: Optional[str] = None,
+    stream: Literal[False] = False,
+    existing_messages: Optional[List[Message]] = None,
+    role_for_prompt: MessageRole = "user",
+    mode: InstructorModeParam = "tool_call",
+) -> List[StructuredReturnType]: ...
 
 async def async_create_from_attributes(
     schema: SchemaType,
@@ -3692,6 +3895,42 @@ async def async_create_from_attributes(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Union[List[StructuredReturnType], Iterable[StructuredReturnType]]:
+    """
+    Asynchronously generate structured data focusing on specific attributes using an LLM.
+    
+    Args:
+        schema: The Pydantic model class defining the structure of the expected output.
+        attributes: List of field names or dictionary mapping field names to weights.
+        prompt: Optional prompt to guide the model's response.
+        instructions: Optional additional instructions to guide the model's response.
+        model: The model to use (e.g., "openai/gpt-4o-mini").
+        model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
+        iterative: Whether to generate the response field by field iteratively.
+        name_override: Optional name to use for the schema in the prompt.
+        description_override: Optional description to use for the schema in the prompt.
+        stream: Whether to stream the response as it's generated.
+        existing_messages: Optional list of previous messages for context.
+        role_for_prompt: The role to assign to the prompt message (usually "user").
+        mode: The instructor mode to use for structured output generation.
+    
+    Returns:
+        A list of structured responses or an iterable of structured responses.
+    
+    Examples:
+        >>> from pydantic import BaseModel
+        >>> class Product(BaseModel):
+        ...     name: str
+        ...     description: str
+        ...     price: float
+        ...     category: str
+        >>> await async_create_from_attributes(
+        ...     schema=Product,
+        ...     attributes={"name": 0.8, "price": 0.2},
+        ...     prompt="Generate a product based on these attributes",
+        ...     model="openai/gpt-4o"
+        ... )
+        [Product(name='Smart Water Bottle', description='', price=34.99, category='')]
+    """
     return expose_method(Create.async_from_attributes)(
         schema=schema,
         attributes=attributes,
@@ -3707,7 +3946,6 @@ async def async_create_from_attributes(
         role_for_prompt=role_for_prompt,
         mode=mode,
     )
-
 
 __all__ = [
     "Create",
