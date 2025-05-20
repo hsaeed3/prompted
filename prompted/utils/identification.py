@@ -8,6 +8,9 @@ import logging
 from typing import (
     Any,
     List,
+    Union,
+    Callable,
+    Dict,
 )
 
 from ..common.cache import (
@@ -110,6 +113,34 @@ def is_stream(completion: Any) -> bool:
     except Exception as e:
         logger.debug(f"Error checking if object is stream: {e}")
         return False
+    
+
+def is_tool(tool: Any) -> bool:
+    """
+    Checks if a given object is a valid tool in the OpenAI API.
+
+    Args:
+        tool: The object to check.
+
+    Returns:
+        True if the object is a valid tool, False otherwise.
+    """
+
+    @cached(lambda tool: make_hashable(tool) if tool else "")
+    def _is_tool(tool: Any) -> bool:
+        try:
+            if not isinstance(tool, dict):
+                return False
+            if tool.get("type") != "function":
+                return False
+            if "function" not in tool:
+                return False
+            return True
+        except Exception as e:
+            logger.debug(f"Error validating tool: {e}")
+            return False
+
+    return _is_tool(tool)
 
 
 def is_message(message: Any) -> bool:
@@ -216,10 +247,47 @@ def has_tool_call(completion: Any) -> bool:
     return _has_tool_call(completion)
 
 
+@cached(
+    lambda completion, tool: make_hashable(
+        (completion, tool.__name__ if callable(tool) else tool)
+    )
+    if completion
+    else ""
+)
+def has_specific_tool_call(
+    completion: Any, tool: Union[str, Callable, Dict[str, Any]]
+) -> bool:
+    """Checks if a given tool was called in a chat completion."""
+    from .converters import convert_completion_to_tool_calls
+
+    try:
+        tool_name = ""
+        if isinstance(tool, str):
+            tool_name = tool
+        elif callable(tool):
+            tool_name = tool.__name__
+        elif isinstance(tool, dict) and "name" in tool:
+            tool_name = tool["name"]
+        else:
+            return False
+
+        tool_calls = convert_completion_to_tool_calls(completion)
+        return any(
+            _get_value(_get_value(call, "function", {}), "name")
+            == tool_name
+            for call in tool_calls
+        )
+    except Exception as e:
+        logger.debug(f"Error checking if tool was called: {e}")
+        return False
+
+
 __all__ = [
     "is_completion",
     "is_stream",
     "is_message",
+    "is_tool",
     "has_system_prompt",
     "has_tool_call",
+    "has_specific_tool_call",
 ]

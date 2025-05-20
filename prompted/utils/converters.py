@@ -40,21 +40,6 @@ from .identification import is_message
 
 logger = logging.getLogger(__name__)
 
-__all__ = [
-    "convert_to_message",
-    "convert_to_tool_definition",
-    "convert_to_tool_definitions",
-    "convert_to_field",
-    "convert_to_pydantic_model",
-    "convert_to_selection_model",
-    "convert_to_boolean_model",
-    "convert_to_input_audio_message",
-    "convert_to_image_message",
-    "convert_completion_to_pydantic_model",
-    "convert_stream_to_completion",
-    "convert_stream_to_message",
-]
-
 
 def convert_to_message(
     message: Any,
@@ -1032,3 +1017,45 @@ def convert_stream_to_message(stream: Any) -> Message:
     except Exception as e:
         logger.debug(f"Error dumping stream to message: {e}")
         raise
+
+
+def convert_completion_to_tool_calls(completion: Any) -> List[Dict[str, Any]]:
+    """
+    Extracts tool calls from a given chat completion object.
+
+    Args:
+        completion: A chat completion object (streaming or non-streaming).
+
+    Returns:
+        A list of tool call dictionaries (each containing id, type, and function details).
+    """
+    from .identification import has_tool_call, _get_value
+
+    try:
+        if not has_tool_call(completion):
+            return []
+        choices = _get_value(completion, "choices", [])
+        if not choices:
+            return []
+        message = _get_value(choices[0], "message", {})
+        return _get_value(message, "tool_calls", [])
+    except Exception as e:
+        logger.debug(f"Error getting tool calls: {e}")
+        return []
+    
+
+__all__ = [
+    "convert_to_message",
+    "convert_to_tool_definition",
+    "convert_to_tool_definitions",
+    "convert_to_field",
+    "convert_to_pydantic_model",
+    "convert_to_selection_model",
+    "convert_to_boolean_model",
+    "convert_to_input_audio_message",
+    "convert_to_image_message",
+    "convert_completion_to_pydantic_model",
+    "convert_stream_to_completion",
+    "convert_stream_to_message",
+    "convert_completion_to_tool_calls",
+]

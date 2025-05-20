@@ -34,8 +34,10 @@ if TYPE_CHECKING:
         is_completion,
         is_stream,
         is_message,
+        is_tool,
         has_system_prompt,
         has_tool_call,
+        has_specific_tool_call,
     )
 
     from .utils.mock import (
@@ -58,6 +60,7 @@ if TYPE_CHECKING:
         convert_to_selection_model,
         convert_to_tool_definition,
         convert_to_tool_definitions,
+        convert_completion_to_tool_calls
     )
 
     from .utils.formatting import (
@@ -201,8 +204,10 @@ IMPORT_MAP: Dict[str, Tuple[str, str]] = {
     "is_completion": (".utils.identification", "is_completion"),
     "is_stream": (".utils.identification", "is_stream"),
     "is_message": (".utils.identification", "is_message"),
+    "is_tool": (".utils.identification", "is_tool"),
     "has_system_prompt": (".utils.identification", "has_system_prompt"),
     "has_tool_call": (".utils.identification", "has_tool_call"),
+    "has_specific_tool_call": (".utils.identification", "has_specific_tool_call"),
     # UTILS - CONVERTERS
     "convert_completion_to_pydantic_model": (
         ".utils.converters",
@@ -245,6 +250,10 @@ IMPORT_MAP: Dict[str, Tuple[str, str]] = {
     "convert_to_tool_definitions": (
         ".utils.converters",
         "convert_to_tool_definitions",
+    ),
+    "convert_completion_to_tool_calls": (
+        ".utils.converters",
+        "convert_completion_to_tool_calls",
     ),
     # UTILS - FORMATTING
     "format_to_markdown": (".utils.formatting", "format_to_markdown"),
@@ -342,8 +351,10 @@ __all__ = [
     "is_completion",
     "is_stream",
     "is_message",
+    "is_tool",
     "has_system_prompt",
     "has_tool_call",
+    "has_specific_tool_call",
     "convert_completion_to_pydantic_model",
     "convert_stream_to_completion",
     "convert_stream_to_message",
@@ -356,6 +367,7 @@ __all__ = [
     "convert_to_selection_model",
     "convert_to_tool_definition",
     "convert_to_tool_definitions",
+    "convert_completion_to_tool_calls",
     "format_to_markdown",
     "format_messages",
     "format_system_prompt",
