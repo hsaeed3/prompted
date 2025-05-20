@@ -4,8 +4,6 @@
 [`hammad saeed`](https://github.com/hsaeed3) | 2025
 """
 
-from __future__ import annotations
-
 from ._main import (
     create,
     types,
@@ -13,9 +11,9 @@ from ._main import (
 )
 from .core.logger import verbosity
 
-__all__ = [
+__all__ = (
     "create",
     "types",
     "utils",
     "verbosity"
-]
+)

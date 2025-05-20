@@ -6,18 +6,16 @@ the `prompted` package, with scoped classes for a simpler & modular
 namespace & usage.
 """
 
-import sys
 from importlib import import_module
 from typing import TYPE_CHECKING, Dict, Any, Tuple, List
 
-if TYPE_CHECKING:
-    from .cls import (
-        CompletionsUtils,
-        MessagesUtils,
-        ToolsUtils,
-        PydanticUtils,
-        MarkdownUtils,
-    )
+from .cls import (
+    CompletionsUtils,
+    MessagesUtils,
+    ToolsUtils,
+    PydanticUtils,
+    MarkdownUtils,
+)
 
 
 _IMPORT_SPEC: Dict[str, Tuple[str, str]] = {
@@ -60,14 +58,6 @@ class Utils:
     the `prompted` package, with scoped classes for a simpler & modular
     namespace & usage.
     """
-
-    from .cls import (
-        CompletionsUtils,
-        MessagesUtils,
-        ToolsUtils,
-        PydanticUtils,
-        MarkdownUtils,
-    )
 
     completions = CompletionsUtils
     messages = MessagesUtils
