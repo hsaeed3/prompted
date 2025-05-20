@@ -55,16 +55,13 @@ def is_completion(completion: Any) -> bool:
     streamed responses.
     """
 
-    @cached(
-        lambda completion: make_hashable(completion) if completion else ""
-    )
+    @cached(lambda completion: make_hashable(completion) if completion else "")
     def _is_completion(completion: Any) -> bool:
         try:
             # Handle passthrough wrapper (sync or async)
             if hasattr(completion, "chunks"):
                 return bool(completion.chunks) and any(
-                    _get_value(chunk, "choices")
-                    for chunk in completion.chunks
+                    _get_value(chunk, "choices") for chunk in completion.chunks
                 )
 
             # Original logic
@@ -73,13 +70,10 @@ def is_completion(completion: Any) -> bool:
                 return False
             first_choice = choices[0]
             return bool(
-                _get_value(first_choice, "message")
-                or _get_value(first_choice, "delta")
+                _get_value(first_choice, "message") or _get_value(first_choice, "delta")
             )
         except Exception as e:
-            logger.debug(
-                f"Error checking if object is chat completion: {e}"
-            )
+            logger.debug(f"Error checking if object is chat completion: {e}")
             return False
 
     return _is_completion(completion)
@@ -113,7 +107,7 @@ def is_stream(completion: Any) -> bool:
     except Exception as e:
         logger.debug(f"Error checking if object is stream: {e}")
         return False
-    
+
 
 def is_tool(tool: Any) -> bool:
     """
@@ -200,10 +194,7 @@ def has_system_prompt(messages: List[Message]) -> bool:
             for msg in messages:
                 if not isinstance(msg, dict):
                     raise TypeError("Each message must be a dict")
-                if (
-                    msg.get("role") == "system"
-                    and msg.get("content") is not None
-                ):
+                if msg.get("role") == "system" and msg.get("content") is not None:
                     return True
             return False
         except Exception as e:
@@ -224,9 +215,7 @@ def has_tool_call(completion: Any) -> bool:
         True if the object contains a tool call, False otherwise.
     """
 
-    @cached(
-        lambda completion: make_hashable(completion) if completion else ""
-    )
+    @cached(lambda completion: make_hashable(completion) if completion else "")
     def _has_tool_call(completion: Any) -> bool:
         try:
             if not is_completion(completion):
@@ -273,8 +262,7 @@ def has_specific_tool_call(
 
         tool_calls = convert_completion_to_tool_calls(completion)
         return any(
-            _get_value(_get_value(call, "function", {}), "name")
-            == tool_name
+            _get_value(_get_value(call, "function", {}), "name") == tool_name
             for call in tool_calls
         )
     except Exception as e:

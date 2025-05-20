@@ -18,21 +18,15 @@ def test_convert_to_message():
         age: int
         email: Optional[str]
 
-    user = UserProfile(
-        name="John Doe", age=30, email="john.doe@example.com"
-    )
+    user = UserProfile(name="John Doe", age=30, email="john.doe@example.com")
 
     # Test with schema=True (default behavior)
-    converted_schema = converters.convert_to_message(
-        user, markdown=True, schema=True
-    )
+    converted_schema = converters.convert_to_message(user, markdown=True, schema=True)
     print("With schema=True (default):")
     print(converted_schema)
 
     # Test with schema=False to show values
-    converted_values = converters.convert_to_message(
-        user, markdown=True, schema=False
-    )
+    converted_values = converters.convert_to_message(user, markdown=True, schema=False)
     print("\nWith schema=False:")
     print(converted_values)
 

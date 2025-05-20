@@ -61,9 +61,7 @@ class _StreamPassthrough:
                             tool_calls = choice.delta.get("tool_calls")
                         else:
                             content = getattr(choice.delta, "content", "")
-                            tool_calls = getattr(
-                                choice.delta, "tool_calls", None
-                            )
+                            tool_calls = getattr(choice.delta, "tool_calls", None)
 
                         # Create a proper CompletionMessage with empty string as default content
                         choice.delta = CompletionMessage(

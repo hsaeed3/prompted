@@ -48,11 +48,7 @@ def _get_field_description(field_info: Any) -> Optional[str]:
         docstring_parser = None  # Set to None if import fails
 
     try:
-        if (
-            docstring_parser
-            and hasattr(field_info, "__doc__")
-            and field_info.__doc__
-        ):
+        if docstring_parser and hasattr(field_info, "__doc__") and field_info.__doc__:
             doc = docstring_parser.parse(field_info.__doc__)
             if doc.short_description:
                 return doc.short_description
@@ -66,9 +62,7 @@ def _get_field_description(field_info: Any) -> Optional[str]:
         return None
 
 
-def format_docstring(
-    doc_dict: dict, prefix: str = "", compact: bool = False
-) -> str:
+def format_docstring(doc_dict: dict, prefix: str = "", compact: bool = False) -> str:
     """Format parsed docstring into markdown.
 
     Args:
@@ -113,9 +107,7 @@ def format_docstring(
                 parts.append(f"{prefix}_Parameters:_")
                 for name, type_name, desc in doc_dict["params"]:
                     type_str = f": {type_name}" if type_name else ""
-                    parts.append(
-                        f"{prefix}  - `{name}{type_str}` - {desc}"
-                    )
+                    parts.append(f"{prefix}  - `{name}{type_str}` - {desc}")
             if doc_dict.get("returns"):
                 parts.append(f"{prefix}_Returns:_ {doc_dict['returns']}")
             if doc_dict.get("raises"):
@@ -141,9 +133,7 @@ def format_docstring(
         if doc.params:
             parts.append(f"{prefix}_Parameters:_")
             for param in doc.params:
-                type_str = (
-                    f": {param.type_name}" if param.type_name else ""
-                )
+                type_str = f": {param.type_name}" if param.type_name else ""
                 parts.append(
                     f"{prefix}  - `{param.arg_name}{type_str}` - {param.description}"
                 )
@@ -154,9 +144,7 @@ def format_docstring(
         if doc.raises:
             parts.append(f"{prefix}_Raises:_")
             for exc in doc.raises:
-                parts.append(
-                    f"{prefix}  - `{exc.type_name}` - {exc.description}"
-                )
+                parts.append(f"{prefix}  - `{exc.type_name}` - {exc.description}")
 
         return "\n".join(parts)
     except Exception as e:
@@ -181,10 +169,7 @@ def get_type_name(cls: Any) -> str:
         annotation = cls.annotation
         if annotation is not None:
             # Handle Optional types from Pydantic field
-            if (
-                hasattr(annotation, "__origin__")
-                and annotation.__origin__ is Union
-            ):
+            if hasattr(annotation, "__origin__") and annotation.__origin__ is Union:
                 args = get_args(annotation)
                 if len(args) == 2 and args[1] is type(None):
                     inner_type = args[0]
@@ -212,12 +197,8 @@ def get_type_name(cls: Any) -> str:
 
         # Handle other generic types (List, Dict, Tuple, Set, etc.)
         # Use origin.__name__ for built-in generics like list, dict, tuple, set
-        origin_name = getattr(
-            origin, "__name__", str(origin).split(".")[-1]
-        )
-        if origin_name.startswith(
-            "_"
-        ):  # Handle internal typing names like _List
+        origin_name = getattr(origin, "__name__", str(origin).split(".")[-1])
+        if origin_name.startswith("_"):  # Handle internal typing names like _List
             origin_name = origin_name[1:]
 
         if args:  # If there are type arguments
@@ -235,15 +216,11 @@ def get_type_name(cls: Any) -> str:
     if ti.is_literal_type(cls):
         return f"Literal[{', '.join(str(arg) for arg in args)}]"
     if ti.is_typeddict(cls):
-        return (
-            f"TypedDict[{', '.join(get_type_name(arg) for arg in args)}]"
-        )
+        return f"TypedDict[{', '.join(get_type_name(arg) for arg in args)}]"
     if ti.is_protocol(cls):
         return f"Protocol[{', '.join(get_type_name(arg) for arg in args)}]"
     if ti.is_classvar(cls):
-        return (
-            f"ClassVar[{get_type_name(args[0])}]" if args else "ClassVar"
-        )
+        return f"ClassVar[{get_type_name(args[0])}]" if args else "ClassVar"
     if ti.is_final_type(cls):
         return f"Final[{get_type_name(args[0])}]" if args else "Final"
     if ti.is_new_type(cls):
@@ -252,9 +229,7 @@ def get_type_name(cls: Any) -> str:
     # Special handling for Optional type
     if str(cls).startswith("typing.Optional"):
         # Extract the inner type from the string representation
-        inner_type_str = (
-            str(cls).replace("typing.Optional[", "").rstrip("]")
-        )
+        inner_type_str = str(cls).replace("typing.Optional[", "").rstrip("]")
         return f"Optional[{inner_type_str}]"
 
     # Fallback for any other types
@@ -301,16 +276,9 @@ def _parse_docstring(obj: Any, use_getdoc: bool = True) -> Optional[dict]:
         result = {
             "short": parsed.short_description,
             "long": parsed.long_description,
-            "params": [
-                (p.arg_name, p.type_name, p.description)
-                for p in parsed.params
-            ],
-            "returns": parsed.returns.description
-            if parsed.returns
-            else None,
-            "raises": [
-                (e.type_name, e.description) for e in parsed.raises
-            ],
+            "params": [(p.arg_name, p.type_name, p.description) for p in parsed.params],
+            "returns": parsed.returns.description if parsed.returns else None,
+            "raises": [(e.type_name, e.description) for e in parsed.raises],
         }
         # Filter out empty lists or None values for cleaner dictionary
         return {
@@ -342,6 +310,7 @@ def format_to_markdown(
     language: str | None = None,
     show_header: bool = True,
     schema: bool = False,
+    title_name: str | None = None,
     _visited: set[int] | None = None,
 ) -> str:
     """
@@ -365,6 +334,7 @@ def format_to_markdown(
         language (str | None, optional): The language for code block formatting. Defaults to None.
         show_header (bool, optional): Whether to include the header of the object. Defaults to True.
         schema (bool, optional): If True, only show schema. If False, show values for initialized objects. Defaults to False.
+        title_name (str | None, optional): Custom title to use instead of the object's class name. Defaults to None.
         _visited (set[int] | None, optional): A set of visited object IDs to avoid circular references. Defaults to None.
 
     Returns:
@@ -390,6 +360,7 @@ def format_to_markdown(
         language,
         show_header,
         schema,
+        title_name,
         _visited: (
             id(target),  # Use object ID for the target itself
             indent,
@@ -403,6 +374,7 @@ def format_to_markdown(
             language,
             show_header,
             schema,
+            title_name,
             id(_visited)
             if _visited is not None
             else None,  # Use ID for the visited set
@@ -421,6 +393,7 @@ def format_to_markdown(
         language: str | None = None,
         show_header: bool = True,
         schema: bool = False,
+        title_name: str | None = None,
         _visited: set[int] | None = None,
     ) -> str:
         # Initialize visited set if not provided (for the initial call)
@@ -450,8 +423,11 @@ def format_to_markdown(
             isinstance(target, type) and issubclass(target, BaseModel)
         ):
             is_class = isinstance(target, type)
+            # Use custom title_name if provided, otherwise use model name
             model_name = (
-                target.__name__ if is_class else target.__class__.__name__
+                title_name
+                if title_name is not None
+                else (target.__name__ if is_class else target.__class__.__name__)
             )
 
             if code_block:
@@ -459,22 +435,19 @@ def format_to_markdown(
                     schema or is_class
                 ):  # If schema is True or it's the class itself, show schema
                     data = {}
-                    for field, field_info in target.model_fields.items():
+                    for (
+                        field,
+                        field_info,
+                    ) in target.__class__.model_fields.items():
                         # Get the full type name including Optional if present
                         type_name = get_type_name(field_info.annotation)
                         # If the field has a default value and it's not None, add it to the type
                         if not is_class and field_info.default is not None:
-                            type_name = (
-                                f"{type_name} = {field_info.default}"
-                            )
+                            type_name = f"{type_name} = {field_info.default}"
                         data[field] = type_name
                     # Format schema dictionary as JSON-like structure
-                    json_lines = [
-                        f'{prefix}  "{k}": "{v}"' for k, v in data.items()
-                    ]
-                    json_str = (
-                        "{\n" + ",\n".join(json_lines) + f"\n{prefix}}}"
-                    )
+                    json_lines = [f'{prefix}  "{k}": "{v}"' for k, v in data.items()]
+                    json_str = "{\n" + ",\n".join(json_lines) + f"\n{prefix}}}"
                 else:  # Show actual values for an instance if schema is False
                     # Use model_dump to get a JSON-serializable dictionary representation
                     data = target.model_dump(mode="json")
@@ -485,11 +458,7 @@ def format_to_markdown(
                 return f"```{lang_tag}\n{json_str}\n```"
 
             # Non-code-block formatting for Pydantic models
-            header_parts = (
-                [f"{prefix}{bullet}**{model_name}**:"]
-                if show_title
-                else []
-            )
+            header_parts = [f"{prefix}{bullet}**{model_name}**:"] if show_title else []
             if show_docs and show_header:
                 try:
                     # Parse docstring from the class or instance's class
@@ -506,14 +475,12 @@ def format_to_markdown(
                         if doc_md:
                             header_parts.append(doc_md)
                 except Exception as e:
-                    logger.warning(
-                        f"Error parsing docstring for {model_name}: {e}"
-                    )
+                    logger.warning(f"Error parsing docstring for {model_name}: {e}")
 
             header = "\n".join(header_parts) if header_parts else ""
 
             # Iterate over model_fields which correctly represent user-defined fields
-            fields = target.model_fields.items()
+            fields = target.__class__.model_fields.items()
             field_lines = []
             # Determine base indentation for fields based on compact mode
             field_indent_base = indent + (1 if not compact else 0)
@@ -527,7 +494,9 @@ def format_to_markdown(
                 # *** MODIFICATION HERE: Explicitly check schema and is_class to show value ***
                 should_show_value = not schema and not is_class
 
-                if should_show_value:  # Show value only if it's an instance AND schema is False
+                if (
+                    should_show_value
+                ):  # Show value only if it's an instance AND schema is False
                     # Get the actual value from the instance
                     value = getattr(
                         target, key, "<missing>"
@@ -556,9 +525,7 @@ def format_to_markdown(
                     # Format the field line: "key: Type = Value" or "key: Type:\n  Value"
                     if "\n" in formatted_value:
                         # If the formatted value is multi-line, put it on the next line
-                        field_line_parts.append(
-                            f"{prefix}{bullet}{key}{type_info}:"
-                        )
+                        field_line_parts.append(f"{prefix}{bullet}{key}{type_info}:")
                         field_line_parts.append(f"{formatted_value}")
                     else:
                         # Single line value
@@ -566,9 +533,7 @@ def format_to_markdown(
                             f"{prefix}{bullet}{key}{type_info} = {formatted_value}"
                         )
                 else:  # Schema mode or is_class: show only key and type
-                    field_line_parts.append(
-                        f"{prefix}{bullet}{key}{type_info}"
-                    )
+                    field_line_parts.append(f"{prefix}{bullet}{key}{type_info}")
 
                 # Add the formatted field line(s) to the list
                 field_lines.extend(field_line_parts)
@@ -586,11 +551,7 @@ def format_to_markdown(
                 fields_str = ", ".join(fields_str_parts)
 
                 if show_title:
-                    return (
-                        f"{header.strip()} {fields_str}"
-                        if header
-                        else fields_str
-                    )
+                    return f"{header.strip()} {fields_str}" if header else fields_str
                 else:
                     return fields_str
             else:
@@ -626,24 +587,17 @@ def format_to_markdown(
                             if schema:  # If schema, represent as schema
                                 data_to_dump.append(
                                     {
-                                        field: get_type_name(
-                                            field_info.annotation
-                                        )
+                                        field: get_type_name(field_info.annotation)
                                         for field, field_info in item.model_fields.items()
                                     }
                                 )
                             else:  # If not schema, dump values
-                                data_to_dump.append(
-                                    item.model_dump(mode="json")
-                                )
+                                data_to_dump.append(item.model_dump(mode="json"))
                         elif isinstance(item, dict):  # Handle nested dicts
                             if schema:
                                 # Simplified schema for dict items: key and type of value
                                 data_to_dump.append(
-                                    {
-                                        k: get_type_name(type(v))
-                                        for k, v in item.items()
-                                    }
+                                    {k: get_type_name(type(v)) for k, v in item.items()}
                                 )
                             else:
                                 data_to_dump.append(item)
@@ -659,12 +613,17 @@ def format_to_markdown(
                     # Fallback to non-code-block formatting if JSON serialization fails
 
             # Non-code-block formatting for collections
-            type_name = target.__class__.__name__ if show_types else ""
+            # Use custom title_name if provided, otherwise use collection type name
+            type_name = (
+                title_name
+                if title_name is not None
+                else (target.__class__.__name__ if show_types else "")
+            )
             header = ""
             if show_title:
                 header = (
                     f"{prefix}{bullet}**{type_name}**:"
-                    if show_types
+                    if type_name
                     else f"{prefix}{bullet}Collection:"
                 )
 
@@ -687,6 +646,7 @@ def format_to_markdown(
                     language,
                     show_header,
                     schema,  # Pass schema flag down
+                    None,  # Don't pass title_name to nested items
                     visited_copy,  # Pass the copy of visited set
                 )
                 # Add bullet and indentation to the formatted item
@@ -695,9 +655,7 @@ def format_to_markdown(
                 )
 
             # Remove empty strings from lines before joining
-            final_lines = [
-                line for line in [header] + items if line.strip()
-            ]
+            final_lines = [line for line in [header] + items if line.strip()]
             return "\n".join(final_lines)
 
         # Handle dictionaries
@@ -716,14 +674,10 @@ def format_to_markdown(
                         if (
                             isinstance(value, (BaseModel))
                             or (
-                                isinstance(value, type)
-                                and issubclass(value, BaseModel)
+                                isinstance(value, type) and issubclass(value, BaseModel)
                             )
                             or is_dataclass(value)
-                            or (
-                                isinstance(value, type)
-                                and is_dataclass(value)
-                            )
+                            or (isinstance(value, type) and is_dataclass(value))
                         ):
                             # If value is a model/dataclass (type or instance), show its schema
                             schema_data[key] = _format_to_markdown(
@@ -746,12 +700,17 @@ def format_to_markdown(
                 return f"```{language or 'json'}\n{json_str}\n```"
 
             # Non-code-block formatting for dictionaries
-            type_name = target.__class__.__name__ if show_types else ""
+            # Use custom title_name if provided, otherwise use dict type name
+            type_name = (
+                title_name
+                if title_name is not None
+                else (target.__class__.__name__ if show_types else "")
+            )
             header = ""
             if show_title:
                 header = (
                     f"{prefix}{bullet}**{type_name}**:"
-                    if show_types
+                    if type_name
                     else f"{prefix}{bullet}Dictionary:"
                 )
 
@@ -762,8 +721,8 @@ def format_to_markdown(
             for key, value in target.items():
                 # Recursively format each value in the dictionary
                 formatted_value = _format_to_markdown(
-                    value=value,
-                    item_indent=item_indent,  # Increase indent for nested values
+                    target=value,
+                    indent=item_indent,  # Corrected: Pass item_indent as indent
                     code_block=code_block,
                     compact=compact,
                     show_types=show_types,
@@ -774,7 +733,8 @@ def format_to_markdown(
                     language=language,
                     show_header=show_header,
                     schema=schema,  # Pass schema flag down
-                    visited_copy=visited_copy,  # Pass the copy of visited set
+                    title_name=None,  # Don't pass title_name to nested items
+                    _visited=visited_copy,  # Pass the copy of visited set
                 )
                 # Format the dictionary item: "key: Value"
                 # Ensure the key itself gets bulleted if show_bullets is true for the parent dict
@@ -787,9 +747,7 @@ def format_to_markdown(
                         f"{prefix}{'  ' * item_indent}{key}: {formatted_value.lstrip()}"
                     )
 
-            final_lines = [
-                line for line in [header] + items if line.strip()
-            ]
+            final_lines = [line for line in [header] + items if line.strip()]
             return "\n".join(final_lines)
 
         # Handle dataclasses
@@ -797,25 +755,25 @@ def format_to_markdown(
             is_class = isinstance(
                 target, type
             )  # Check if it's a dataclass type or instance
+            # Use custom title_name if provided, otherwise use dataclass name
             type_name = (
-                target.__name__ if is_class else target.__class__.__name__
+                title_name
+                if title_name is not None
+                else (target.__name__ if is_class else target.__class__.__name__)
             )
 
-            if code_block:  # Dataclasses don't have model_dump, so we manually build dict
+            if (
+                code_block
+            ):  # Dataclasses don't have model_dump, so we manually build dict
                 if (
                     schema or is_class
                 ):  # If schema is True or it's the class itself, show schema
                     data = {
-                        f.name: get_type_name(f.type)
-                        for f in dataclass_fields(target)
+                        f.name: get_type_name(f.type) for f in dataclass_fields(target)
                     }
                     # Format schema dictionary as JSON-like structure
-                    json_lines = [
-                        f'{prefix}  "{k}": "{v}"' for k, v in data.items()
-                    ]
-                    json_str = (
-                        "{\n" + ",\n".join(json_lines) + f"\n{prefix}}}"
-                    )
+                    json_lines = [f'{prefix}  "{k}": "{v}"' for k, v in data.items()]
+                    json_str = "{\n" + ",\n".join(json_lines) + f"\n{prefix}}}"
                 else:  # Show actual values for an instance if schema is False
                     # Manually build dictionary from dataclass fields and values
                     data = {
@@ -829,9 +787,7 @@ def format_to_markdown(
                 return f"```{lang_tag}\n{json_str}\n```"
 
             # Non-code-block formatting for dataclasses
-            header_parts = (
-                [f"{prefix}{bullet}**{type_name}**:"] if show_title else []
-            )
+            header_parts = [f"{prefix}{bullet}**{type_name}**:"] if show_title else []
             if show_docs and show_header:
                 try:
                     # Parse docstring from the class or instance's class
@@ -848,9 +804,7 @@ def format_to_markdown(
                         if doc_md:
                             header_parts.append(doc_md)
                 except Exception as e:
-                    logger.warning(
-                        f"Error parsing docstring for {type_name}: {e}"
-                    )
+                    logger.warning(f"Error parsing docstring for {type_name}: {e}")
 
             header = "\n".join(header_parts) if header_parts else ""
 
@@ -861,14 +815,14 @@ def format_to_markdown(
 
             for f in fields_list:
                 field_line_parts = []
-                type_info = (
-                    f": {get_type_name(f.type)}" if show_types else ""
-                )
+                type_info = f": {get_type_name(f.type)}" if show_types else ""
 
                 # *** MODIFICATION HERE: Explicitly check schema and is_class to show value ***
                 should_show_value = not schema and not is_class
 
-                if should_show_value:  # Show value only if it's an instance AND schema is False
+                if (
+                    should_show_value
+                ):  # Show value only if it's an instance AND schema is False
                     # Get the actual value from the instance
                     value = getattr(target, f.name)
 
@@ -889,15 +843,14 @@ def format_to_markdown(
                         language=language,
                         show_header=False,
                         schema=schema,  # Pass schema flag down
+                        title_name=None,  # Don't pass title_name to nested items
                         _visited=visited_copy,  # Pass the copy of visited set
                     ).lstrip()  # Remove any leading indentation from the recursive call
 
                     # Format the field line: "key: Type = Value" or "key: Type:\n  Value"
                     if "\n" in formatted_value:
                         # If the formatted value is multi-line, put it on the next line
-                        field_line_parts.append(
-                            f"{prefix}{bullet}{f.name}{type_info}:"
-                        )
+                        field_line_parts.append(f"{prefix}{bullet}{f.name}{type_info}:")
                         field_line_parts.append(f"{formatted_value}")
                     else:
                         # Single line value
@@ -905,9 +858,7 @@ def format_to_markdown(
                             f"{prefix}{bullet}{f.name}{type_info} = {formatted_value}"
                         )
                 else:  # Schema mode or is_class: show only key and type
-                    field_line_parts.append(
-                        f"{prefix}{bullet}{f.name}{type_info}"
-                    )
+                    field_line_parts.append(f"{prefix}{bullet}{f.name}{type_info}")
 
                 # Add the formatted field line(s) to the list
                 field_lines.extend(field_line_parts)
@@ -917,7 +868,9 @@ def format_to_markdown(
                 # Re-generate fields_str to correctly apply schema/instance logic
                 fields_str_parts = []
                 for f in fields_list:
-                    field_part = f"{f.name}{f': {get_type_name(f.type)}' if show_types else ''}"
+                    field_part = (
+                        f"{f.name}{f': {get_type_name(f.type)}' if show_types else ''}"
+                    )
                     # *** MODIFICATION HERE: Use should_show_value flag ***
                     if should_show_value:
                         field_part += f"={getattr(target, f.name)}"  # Add value for instance if not schema
@@ -925,11 +878,7 @@ def format_to_markdown(
                 fields_str = ", ".join(fields_str_parts)
 
                 if show_title:
-                    return (
-                        f"{header.strip()} {fields_str}"
-                        if header
-                        else fields_str
-                    )
+                    return f"{header.strip()} {fields_str}" if header else fields_str
                 else:
                     return fields_str
             else:
@@ -958,6 +907,7 @@ def format_to_markdown(
         language,
         show_header,
         schema,
+        title_name,
         _visited,
     )
 
@@ -1018,12 +968,8 @@ def format_system_prompt(
         blank: bool = False,
     ) -> List[Message]:
         try:
-            system_messages = [
-                msg for msg in messages if msg.get("role") == "system"
-            ]
-            other_messages = [
-                msg for msg in messages if msg.get("role") != "system"
-            ]
+            system_messages = [msg for msg in messages if msg.get("role") == "system"]
+            other_messages = [msg for msg in messages if msg.get("role") != "system"]
 
             if system_prompt:
                 if isinstance(system_prompt, str):
@@ -1038,9 +984,7 @@ def format_system_prompt(
                             "System prompt dict must contain 'content' field"
                         )
                 else:
-                    raise ValueError(
-                        "System prompt must be string or dict"
-                    )
+                    raise ValueError("System prompt must be string or dict")
                 system_messages.insert(0, new_system)
 
             if not system_messages and blank:
@@ -1049,12 +993,8 @@ def format_system_prompt(
                 return messages
 
             if len(system_messages) > 1:
-                combined_content = "\n".join(
-                    msg["content"] for msg in system_messages
-                )
-                system_messages = [
-                    {"role": "system", "content": combined_content}
-                ]
+                combined_content = "\n".join(msg["content"] for msg in system_messages)
+                system_messages = [{"role": "system", "content": combined_content}]
 
             return system_messages + other_messages
         except Exception as e:

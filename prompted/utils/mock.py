@@ -199,13 +199,9 @@ class AI:
                     if not kwargs.get("messages"):
                         raise AIError("messages are required")
                     try:
-                        params["messages"] = normalize_messages(
-                            kwargs.get("messages")
-                        )
+                        params["messages"] = normalize_messages(kwargs.get("messages"))
                     except Exception as e:
-                        raise AIError(
-                            f"Failed to normalize messages: {str(e)}"
-                        )
+                        raise AIError(f"Failed to normalize messages: {str(e)}")
                     params["model"] = kwargs.get("model", "gpt-4o-mini")
                     params["stream"] = kwargs.get("stream", False)
 
@@ -214,13 +210,9 @@ class AI:
                     if tools_input:
                         try:
                             params["tools"] = convert_to_tools(tools_input)
-                            logger.debug(
-                                f"Mock completion tools: {params['tools']}"
-                            )
+                            logger.debug(f"Mock completion tools: {params['tools']}")
                         except Exception as e:
-                            raise AIError(
-                                f"Failed to convert tools: {str(e)}"
-                            )
+                            raise AIError(f"Failed to convert tools: {str(e)}")
 
                     # Process other parameters
                     for key, value in kwargs.items():
@@ -231,9 +223,7 @@ class AI:
                         # Streaming mode: generate a mock Choice and return a stream
                         choice = cls._create_mock_response_choice(params)
                         logger.debug(f"Mock completion choice: {choice}")
-                        return stream_passthrough(
-                            cls._stream_response(choice, params)
-                        )
+                        return stream_passthrough(cls._stream_response(choice, params))
                     else:
                         # Non-streaming mode: generate a mock Completion
                         choice = cls._create_mock_response_choice(params)
@@ -248,9 +238,7 @@ class AI:
                 except AIError:
                     raise
                 except Exception as e:
-                    raise AIError(
-                        f"Unexpected error in create(): {str(e)}"
-                    )
+                    raise AIError(f"Unexpected error in create(): {str(e)}")
 
             @classmethod
             def _stream_response(
@@ -298,9 +286,7 @@ class AI:
                         chunk_size = max(1, len(chars) // num_chunks)
 
                         # For all chunks except the last one
-                        for i in range(
-                            0, len(chars) - chunk_size, chunk_size
-                        ):
+                        for i in range(0, len(chars) - chunk_size, chunk_size):
                             chunk_text = "".join(chars[i : i + chunk_size])
                             chunk = CompletionChunk(
                                 id=str(uuid.uuid4()),
@@ -329,12 +315,7 @@ class AI:
                         # Last chunk of text
                         if chars:
                             remaining_text = "".join(
-                                chars[
-                                    -(
-                                        len(chars) % chunk_size
-                                        or chunk_size
-                                    ) :
-                                ]
+                                chars[-(len(chars) % chunk_size or chunk_size) :]
                             )
                             chunk = CompletionChunk(
                                 id=str(uuid.uuid4()),
@@ -389,17 +370,13 @@ class AI:
                     raise AIError(f"Error in streaming response: {str(e)}")
 
             @classmethod
-            def _create_mock_response_choice(
-                cls, params: Params
-            ) -> Completion.Choice:
+            def _create_mock_response_choice(cls, params: Params) -> Completion.Choice:
                 """
                 Creates a mock Completion.Choice object. If tools are provided, simulates a tool call.
                 """
                 try:
                     messages = params.get("messages", [])
-                    user_input = (
-                        messages[-1].get("content", "") if messages else ""
-                    )
+                    user_input = messages[-1].get("content", "") if messages else ""
 
                     # Initialize tool_calls
                     tool_calls: List[CompletionToolCall] = []
@@ -412,27 +389,18 @@ class AI:
                             # Handle tools dictionary
                             if isinstance(tools, dict):
                                 for tool_data in tools.values():
-                                    logger.debug(
-                                        f"Processing tool data: {tool_data}"
-                                    )
+                                    logger.debug(f"Processing tool data: {tool_data}")
                                     if (
                                         isinstance(tool_data, dict)
-                                        and tool_data.get("type")
-                                        == "function"
+                                        and tool_data.get("type") == "function"
                                     ):
                                         # Generate mock arguments based on parameters
                                         mock_args = {}
-                                        if (
-                                            "parameters"
-                                            in tool_data["function"]
-                                        ):
-                                            params_schema = tool_data[
-                                                "function"
-                                            ]["parameters"]
-                                            if (
-                                                "properties"
-                                                in params_schema
-                                            ):
+                                        if "parameters" in tool_data["function"]:
+                                            params_schema = tool_data["function"][
+                                                "parameters"
+                                            ]
+                                            if "properties" in params_schema:
                                                 for (
                                                     param_name,
                                                     param_info,
@@ -441,42 +409,30 @@ class AI:
                                                 ].items():
                                                     # Generate mock values based on type
                                                     if (
-                                                        param_info.get(
-                                                            "type"
-                                                        )
+                                                        param_info.get("type")
                                                         == "string"
                                                     ):
-                                                        mock_args[
-                                                            param_name
-                                                        ] = "mock_string"
-                                                    elif (
-                                                        param_info.get(
-                                                            "type"
+                                                        mock_args[param_name] = (
+                                                            "mock_string"
                                                         )
+                                                    elif (
+                                                        param_info.get("type")
                                                         == "number"
                                                     ):
-                                                        mock_args[
-                                                            param_name
-                                                        ] = 42
+                                                        mock_args[param_name] = 42
                                                     elif (
-                                                        param_info.get(
-                                                            "type"
-                                                        )
+                                                        param_info.get("type")
                                                         == "boolean"
                                                     ):
-                                                        mock_args[
-                                                            param_name
-                                                        ] = True
+                                                        mock_args[param_name] = True
                                                     else:
-                                                        mock_args[
-                                                            param_name
-                                                        ] = "mock_value"
+                                                        mock_args[param_name] = (
+                                                            "mock_value"
+                                                        )
 
                                         # Create CompletionFunction with mock arguments
                                         function = CompletionFunction(
-                                            name=tool_data["function"][
-                                                "name"
-                                            ],
+                                            name=tool_data["function"]["name"],
                                             arguments=json.dumps(
                                                 mock_args
                                             ),  # Convert mock args to JSON string
@@ -492,22 +448,14 @@ class AI:
                                             function=function,
                                         )
                                         tool_calls.append(tool_call)
-                                        logger.debug(
-                                            f"Created tool call: {tool_call}"
-                                        )
+                                        logger.debug(f"Created tool call: {tool_call}")
 
                             if tool_calls:
                                 finish_reason = "tool_calls"
-                                logger.debug(
-                                    f"Final tool_calls list: {tool_calls}"
-                                )
+                                logger.debug(f"Final tool_calls list: {tool_calls}")
                         except Exception as e:
-                            logger.error(
-                                f"Failed to create tool calls: {str(e)}"
-                            )
-                            raise AIError(
-                                f"Failed to create tool calls: {str(e)}"
-                            )
+                            logger.error(f"Failed to create tool calls: {str(e)}")
+                            raise AIError(f"Failed to create tool calls: {str(e)}")
 
                     # Create CompletionMessage with all fields
                     message = CompletionMessage(
@@ -528,9 +476,7 @@ class AI:
                         logprobs=None,
                     )
                 except Exception as e:
-                    raise AIError(
-                        f"Failed to create mock response choice: {str(e)}"
-                    )
+                    raise AIError(f"Failed to create mock response choice: {str(e)}")
 
             @overload
             @classmethod
@@ -580,9 +526,7 @@ class AI:
         def create(
             self,
             *,
-            input: Union[
-                str, List[str], Iterable[int], Iterable[Iterable[int]]
-            ],
+            input: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]],
             model: str,
             dimensions: Optional[int] = None,
             encoding_format: Optional[Literal["float", "base64"]] = None,
@@ -711,9 +655,7 @@ class AsyncAI:
         async def create(
             self,
             *,
-            input: Union[
-                str, List[str], Iterable[int], Iterable[Iterable[int]]
-            ],
+            input: Union[str, List[str], Iterable[int], Iterable[Iterable[int]]],
             model: str,
             dimensions: Optional[int] = None,
             encoding_format: Optional[Literal["float", "base64"]] = None,
@@ -928,9 +870,7 @@ async def amock_completion(
     """
     Asynchronously mocks the OpenAI ChatCompletion.create method.
     """
-    result = mock_completion(
-        messages=messages, model=model, stream=stream, **kwargs
-    )
+    result = mock_completion(messages=messages, model=model, stream=stream, **kwargs)
 
     if not stream:
         return result

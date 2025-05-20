@@ -48,6 +48,7 @@ def test_markdownify_show_bullets(example_instance):
     expected = "**ExampleModel**:\nname: str\nvalue: int"
     assert isinstance(result, str)
 
+
 def test_markdownify_show_docs(example_instance):
     result = markdownify(example_instance, show_docs=False)
     expected = "- **ExampleModel**:\n  - name: str\n  - value: int"
