@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------
 
 name = "prompted"
-version = "0.0.11"
+version = "0.0.12"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [
@@ -35,22 +35,28 @@ create = [
 mcp = [
     "mcp>=1.9.0",
 ]
+a2a = [
+    "fasta2a"
+]
+all = [
+    "mcp>=1.9.0",
+    "fasta2a",
+    "litellm>=1.61.3",
+    "instructor>=1.8.2",
+]
+examples = [
+    "ipython",
+    "ipykernel",
+]
 
 
-# ------------------------------------------------------------------------
-# Dependency Groups - For LOCAL DEVELOPMENT/TESTING
-# ------------------------------------------------------------------------
-# These are NOT considered optional dependencies of your published package.
-# uv sync will install 'dev' by default.
-# To install other groups, use 'uv sync --group <group-name>'.
-# To install all groups, use 'uv sync --all-groups'.
 [dependency-groups]
 dev = [
     # core dev tools
     # i love astral.sh
     "ruff",
     "uv",
-    "rich", # Already in project.dependencies, but good to include here for explicit dev env
+    "rich", 
     "twine",
     # tests
     "pytest",
@@ -60,8 +66,10 @@ dev = [
     "ipython",
     # openai is used for testing
     "openai>=1.52.0,<2.0.0",
-    "litellm", # Already in 'create' extra, but included here if you need it for general dev without the 'create' extra.
-    "instructor[litellm]>=1.8.2"
+    "litellm",
+    "instructor[litellm]>=1.8.2",
+    "mcp>=1.9.0",
+    "fasta2a",
 ]
 
 
@@ -93,6 +101,11 @@ packages = ["prompted"]
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
+
+[tool.uv.workspace]
+members = [
+    "samples/trip_planner",
+]
 
 
 # exclude docs/ dir

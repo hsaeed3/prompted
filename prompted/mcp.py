@@ -11,19 +11,26 @@ from anyio.streams.memory import (
     MemoryObjectReceiveStream,
     MemoryObjectSendStream,
 )
-from mcp import (
-    ClientSession,
-    StdioServerParameters,
-    Tool as MCPTool,
-    stdio_client,
-)
-from mcp.client.sse import sse_client
-from mcp.client.streamable_http import (
-    GetSessionIdCallback,
-    streamablehttp_client,
-)
-from mcp.shared.message import SessionMessage
-from mcp.types import CallToolResult, InitializeResult
+try:
+    from mcp import (
+        ClientSession,
+        StdioServerParameters,
+        Tool as MCPTool,
+        stdio_client,
+    )
+    from mcp.client.sse import sse_client
+    from mcp.client.streamable_http import (
+        GetSessionIdCallback,
+        streamablehttp_client,
+    )
+    from mcp.shared.message import SessionMessage
+    from mcp.types import CallToolResult, InitializeResult
+except ImportError:
+    raise ImportError(
+        "mcp is not installed. Please install it with `pip install mcp`.\n"
+        "Or use the `prompted[mcp]` extra to install it."
+    )
+
 from typing_extensions import NotRequired, TypedDict
 
 import logging
