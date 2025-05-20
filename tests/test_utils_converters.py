@@ -16,14 +16,14 @@ def test_convert_to_message():
     class UserProfile(BaseModel):
         name: str
         age: int
-        email: Optional[str] = None
+        email: Optional[str]
 
     user = UserProfile(
         name="John Doe", age=30, email="john.doe@example.com"
     )
 
     # Test with schema=True (default behavior)
-    converted_schema = converters.convert_to_message(user, markdown=True)
+    converted_schema = converters.convert_to_message(user, markdown=True, schema=True)
     print("With schema=True (default):")
     print(converted_schema)
 
