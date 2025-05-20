@@ -39,6 +39,7 @@ from pydantic import (
     ValidationError,
     ConfigDict,
 )
+from rich import print as rich_print
 
 from ..create import Create, PromptType, SchemaType
 from ..create import (
@@ -99,10 +100,30 @@ class AgentResponse(Generic[OutType]):
                                  and tool interactions.
     """
 
+    agent_name : str = field(default="Agent", repr=False)
     parts: list[Any] = field(default_factory=list)
     output: Optional[OutType] = None
     history: List[Message] = field(default_factory=list)
 
+    def _pretty_print_self(self) -> str:
+        """
+        Pretty prints the agent response object (used for
+        __str__ and __repr__).
+        """
+        return (
+            f"\nAgent Response for: {self.agent_name}\n"
+            f">>> Total Parts : {len(self.parts)}\n"
+            f">>> History Length : {len(self.history)}\n"
+            f">>> Response Type : {type(self.output)}\n"
+            f">>> Final Response : {self.output}\n"
+        )
+    
+    def __str__(self) -> str:
+        return self._pretty_print_self()
+    
+    def __repr__(self) -> str:
+        return self._pretty_print_self()
+        
 
 @dataclass
 class AgentSettings:
@@ -220,6 +241,10 @@ class AgentSettings:
     even if `keep_intermediate_steps` is `True` (they would still be in `AgentResponse.parts` 
     and full history).
     """
+    verbose: bool = False
+    """
+    If `True`, print verbose logging messages.
+    """
 
 
 # --- Internal Pydantic Models for Agent Logic ---
@@ -336,7 +361,7 @@ class Agent(Generic[CtxType, OutType]):
     """Configuration settings controlling the agent's runtime behavior."""
     tools: list[AgentTool] = field(default_factory=list)
     """A list of `AgentTool` instances that this agent is capable of using."""
-    logger: logging.Logger | None = field(default=None, init=False, repr=False)
+    logger: logging.Logger | None = field(default=None, repr=False)
     """Internal logger for the agent."""
 
     _create_api: Create = field(default_factory=Create, init=False, repr=False)
@@ -353,12 +378,18 @@ class Agent(Generic[CtxType, OutType]):
             "[End Decision Thought]:",
         )
         return any(content.startswith(prefix) for prefix in known_thought_prefixes)
+    
+    def _print_verbose(self, message: str):
+        if self.settings.verbose:
+            rich_print(f"[bold light_sky_blue3]{self.name}[/bold light_sky_blue3] | [bold]Event[/bold] : {message}")
 
     def __post_init__(self):
         """Validates context type after initialization."""
 
         if not self.logger:
             self.logger = logging.getLogger(f"prompted.agents.{self.name}")
+        if self.settings.verbose:
+            rich_print(f"[dim green]Verbose logging enabled for agent: [bold]{self.name}[/bold][/dim green]\n")
 
         if self.context is not None:
             is_pydantic_model_class = isinstance(self.context, type) and issubclass(
@@ -454,10 +485,6 @@ class Agent(Generic[CtxType, OutType]):
             else update_context_before_response
         )
 
-        logger = logging.getLogger(f"prompted.agents.{name}")
-        if verbose:
-            logger.setLevel(logging.DEBUG)
-
         # Use sensible defaults for end_strategy based on whether tools will be used
         # For a no-tool agent, selective is more efficient than the full strategy that requires a finalize_response tool
         actual_end_strategy = end_strategy
@@ -500,6 +527,7 @@ class Agent(Generic[CtxType, OutType]):
             show_context=show_context
             if show_context is not None
             else AgentSettings().show_context,
+            verbose=verbose,
         )
         return cls(
             name=name,
@@ -508,7 +536,6 @@ class Agent(Generic[CtxType, OutType]):
             prompt_template=(prompt_template or AgentPromptTemplate()),
             settings=settings,
             tools=[],  # Tools are added via add_tools method
-            logger=logger,
         )
 
     def _get_context_as_dict(
@@ -1090,12 +1117,16 @@ class Agent(Generic[CtxType, OutType]):
                         run_time_context,
                         additional_messages_from_update,
                     )
+                if self.settings.verbose and fields_to_update_names:
+                    self._print_verbose(
+                        f"Agent identified fields for context update: [bold green]{', '.join(fields_to_update_names)}[/bold green]"
+                    )
 
                 if self.settings.keep_intermediate_steps:
                     additional_messages_from_update.append(
                         Message(
                             role="assistant",
-                            content=f"[Context Update Thought]: Identified fields for potential update: {', '.join(fields_to_update_names)}",
+                            content=f"[Context Update Thought]: Identified fields for potential update: [bold green]{', '.join(fields_to_update_names)}[/bold green]",
                         )
                     )
 
@@ -1138,6 +1169,7 @@ class Agent(Generic[CtxType, OutType]):
                                     model_params=self.settings.model_params,
                                 )
                             )
+
                             if updated_field_model_instance and hasattr(
                                 updated_field_model_instance, field_name
                             ):
@@ -1145,6 +1177,12 @@ class Agent(Generic[CtxType, OutType]):
                                     updated_field_model_instance,
                                     field_name,
                                 )
+
+                                if self.settings.verbose:
+                                    self._print_verbose(
+                                        f"Agent updated context field '[bold red]{field_name}[/bold red]' from '[bold yellow]{working_context_dict.get(field_name, 'N/A')}[/bold yellow]' to: '[bold green]{new_value}[/bold green]'"
+                                    )
+
                                 updated_fields_from_llm[field_name] = new_value
                                 working_context_dict[field_name] = (
                                     new_value  # Update working dict for next iteration's snapshot
@@ -1205,6 +1243,13 @@ class Agent(Generic[CtxType, OutType]):
                                 model_params=self.settings.model_params,
                             )
                         )
+
+                        if self.settings.verbose:
+                            for field_name in valid_fields_for_batch_schema.keys():
+                                self._print_verbose(
+                                    f"Batch updated context field '[bold red]{field_name}[/bold red]' from '[bold yellow]{working_context_dict.get(field_name, 'N/A')}[/bold yellow]' to: '[bold green]{batch_updated_model_instance.model_dump(exclude_unset=True).get(field_name, 'N/A')}[/bold green]'"
+                                )
+
                         if batch_updated_model_instance:
                             updated_fields_from_llm.update(
                                 batch_updated_model_instance.model_dump(
@@ -1245,6 +1290,12 @@ class Agent(Generic[CtxType, OutType]):
                         model_params=self.settings.model_params,
                     )
                 )
+
+                if self.settings.verbose:
+                    self._print_verbose(
+                        f"Agent updated context fields: {', '.join(context_schema_for_llm.model_fields.keys())}"
+                    )
+
                 if updated_context_model_instance:
                     updated_fields_from_llm = updated_context_model_instance.model_dump(
                         exclude_unset=True
@@ -1345,6 +1396,12 @@ class Agent(Generic[CtxType, OutType]):
                 model=self.settings.model,
                 model_params=self.settings.model_params,
             )
+
+            if self.settings.verbose:
+                self._print_verbose(
+                    f"Generated plan: [bold green]{plan_model_instance.plan_description}[/bold green]"
+                )
+
             plan_text_content = (
                 plan_model_instance.plan_description
                 if plan_model_instance
@@ -1417,6 +1474,12 @@ class Agent(Generic[CtxType, OutType]):
                 model=self.settings.model,
                 model_params=self.settings.model_params,
             )
+
+            if self.settings.verbose:
+                self._print_verbose(
+                    f"Generated reflection: [bold green]{reflection_model_instance.critical_reflection}[/bold green]"
+                )
+
             reflection_text_content = (
                 reflection_model_instance.critical_reflection
                 if reflection_model_instance
@@ -1644,6 +1707,16 @@ class Agent(Generic[CtxType, OutType]):
                     model=self.settings.model,
                     model_params=self.settings.model_params,
                 )
+
+                if self.settings.verbose and decision_model_instance and decision_model_instance.should_end:
+                    self._print_verbose(
+                        f"End Strategy (Selective) : Decided to [bold green]end[/bold green]. Reason: [bold yellow]{decision_model_instance.reason or 'N/A'}[/bold yellow]"
+                    )
+                elif self.settings.verbose and decision_model_instance and not decision_model_instance.should_end:
+                    self._print_verbose(
+                        f"End Strategy (Selective) : Decided to [bold yellow]continue[/bold yellow]. Reason: [bold yellow]{decision_model_instance.reason or 'N/A'}[/bold yellow]"
+                    )
+
                 if decision_model_instance:
                     if self.settings.keep_intermediate_steps:
                         current_messages.append(
@@ -1807,6 +1880,11 @@ class Agent(Generic[CtxType, OutType]):
         )
         # current_run_context_strategy = context_strategy_override or run_config.context_strategy # Used by _handle_context_update
 
+        if self.settings.verbose:
+            self._print_verbose(f"[dim]Starting agent run with model: [bold]{current_run_model}[/bold][/dim]")
+            self._print_verbose(f"[dim]End strategy: [bold]{current_run_end_strategy}[/bold][/dim]")
+            self._print_verbose(f"[dim]Output type: [bold]{current_run_output_type.__name__}[/bold][/dim]")
+
         # Initialize mutable context for this run (deep copy to avoid modifying agent's base context)
         current_run_context = (
             deepcopy(context_override)
@@ -1879,11 +1957,17 @@ class Agent(Generic[CtxType, OutType]):
                 "User initiated interaction without a clear text query."
             )
 
+        if self.settings.verbose:
+            self._print_verbose(f"Received user query: [italic]{primary_user_query_str[:50]}{'...' if len(primary_user_query_str) > 50 else ''}[/italic]")
+
         # Build and add system prompt messages
         system_prompt_messages = self._format_compiled_messages(
             current_run_context, primary_user_query_str
         )  # type: ignore
         message_history.extend(system_prompt_messages)
+
+        if self.settings.verbose:
+            self._print_verbose(f"System prompt created with [bold]{len(system_prompt_messages)}[/bold] messages")
 
         # Add the main user prompt input to the message history
         if isinstance(prompt_input, str):
@@ -1918,6 +2002,9 @@ class Agent(Generic[CtxType, OutType]):
             and current_run_context is not None
         ):
             logger.info(f"Agent '{self.name}': Performing initial context update.")
+            if self.settings.verbose:
+                self._print_verbose("Performing [bold]initial context update[/bold]")
+                
             (
                 current_run_context,
                 context_update_messages,
@@ -1945,6 +2032,9 @@ class Agent(Generic[CtxType, OutType]):
             self.logger.info(
                 f"Agent '{self.name}': Forcing execution of tools: {', '.join(tool_names_to_force_execute)}"
             )
+            if self.settings.verbose:
+                self._print_verbose(f"Forcing execution of tools: [bold]{', '.join(tool_names_to_force_execute)}[/bold]")
+                
             initial_messages_for_tool_forcing = [
                 msg for msg in message_history if msg["role"] in ("system", "user")
             ]
@@ -1958,6 +2048,8 @@ class Agent(Generic[CtxType, OutType]):
                     logger.warning(
                         f"Agent '{self.name}': Cannot force tool '{tool_name_to_force}', not found in active tools."
                     )
+                    if self.settings.verbose:
+                        self._print_verbose(f"[bold red]Warning:[/bold red] Cannot force tool '{tool_name_to_force}', not found in active tools")
                     continue
 
                 # Dynamically create Pydantic model for tool arguments
@@ -1992,6 +2084,9 @@ class Agent(Generic[CtxType, OutType]):
                 ]
 
                 try:
+                    if self.settings.verbose:
+                        self._print_verbose(f"Generating arguments for forced tool: [bold]{tool_instance.name}[/bold]")
+                        
                     generated_args_model_instance = (
                         await self._create_api.async_from_schema(
                             schema=ForcedToolArgsModel,
@@ -2008,6 +2103,9 @@ class Agent(Generic[CtxType, OutType]):
                     )
                     args_json_str = json.dumps(args_dictionary)
 
+                    if self.settings.verbose:
+                        self._print_verbose(f"Generated arguments: [italic]{args_json_str[:100]}{'...' if len(args_json_str) > 100 else ''}[/italic]")
+                        
                     forced_tool_call_object: ToolCall = {
                         "id": f"forced_tool_{tool_instance.name}_{uuid.uuid4().hex[:6]}",
                         "type": "function",  # Assuming all agent tools are function types
@@ -2033,6 +2131,9 @@ class Agent(Generic[CtxType, OutType]):
                         if is_streaming_run:
                             yield forced_tool_part
 
+                    if self.settings.verbose:
+                        self._print_verbose(f"Executing forced tool: [bold]{tool_instance.name}[/bold]")
+                        
                     tool_result_messages = await self._handle_tool_calls(
                         [forced_tool_call_object],
                         current_run_context,
@@ -2048,6 +2149,9 @@ class Agent(Generic[CtxType, OutType]):
                         f"Agent '{self.name}': Error during forced execution of tool {tool_instance.name}: {e_force_tool_exec}",
                         exc_info=True,
                     )
+                    if self.settings.verbose:
+                        self._print_verbose(f"[bold red]Error:[/bold red] Failed to execute forced tool {tool_instance.name}: {str(e_force_tool_exec)}")
+                        
                     error_message_content = f"[Error during forced execution of tool {tool_instance.name}: {e_force_tool_exec}]"
                     message_history.append(
                         Message(role="assistant", content=error_message_content)
@@ -2069,7 +2173,7 @@ class Agent(Generic[CtxType, OutType]):
         loop_active_tools = self._get_current_tools(
             tools_override, exclude_tools_override
         )
-
+            
         # Determine if finalize_response tool should be parameter-less for this run
         parameterless_finalize_for_run = False
         if (
@@ -2101,6 +2205,8 @@ class Agent(Generic[CtxType, OutType]):
             self.logger.info(
                 f"Agent '{self.name}' starting main execution step {current_step_count}"
             )
+            if self.settings.verbose:
+                self._print_verbose(f"Starting execution step [bold]{current_step_count}[/bold] of {run_config.max_steps}")
 
             # Filter messages for LLM for this iteration
             # This snapshot will be used as the base for planning and the main LLM call for this step.
@@ -2156,9 +2262,9 @@ class Agent(Generic[CtxType, OutType]):
                     logger.debug(
                         f"Agent '{self.name}': Added early exit instruction for step 1."
                     )
-
             # 1. Planning Step
             # Planning uses the messages prepared for this step, including the potential early exit instruction.
+                
             (
                 plan_text_content,
                 planning_messages,
@@ -2174,8 +2280,7 @@ class Agent(Generic[CtxType, OutType]):
                 if is_streaming_run and run_config.keep_intermediate_steps:
                     for msg_part in planning_messages:
                         yield msg_part
-
-            # 2. Main LLM Call for response or tool usage
+                
             llm_call_parameters: Dict[str, Any] = {
                 "model": current_run_model,
                 "messages": messages_for_llm_this_step,  # Use the (potentially modified) messages for this step
@@ -2220,7 +2325,7 @@ class Agent(Generic[CtxType, OutType]):
                     for key, value in llm_call_parameters.items():
                         if key not in prompt_params:
                             prompt_params[key] = value
-
+                        
                     llm_stream_chunks = self._create_api.from_prompt(**prompt_params)  # type: ignore
                     streamed_tool_calls_buffer: Dict[
                         int, Dict[str, Any]
@@ -2514,6 +2619,10 @@ class Agent(Generic[CtxType, OutType]):
                         for tc in tool_calls_generated_this_step
                     ):
                         agent_operation_ended = True
+                        if self.settings.verbose:
+                            self._print_verbose(
+                                f"End Strategy (Full) : Decided to [bold green]end[/bold green] via 'finalize_response' tool call."
+                            )
                         self.logger.info(
                             f"Agent '{self.name}' ending operation via 'finalize_response' tool call."
                         )
@@ -2531,6 +2640,10 @@ class Agent(Generic[CtxType, OutType]):
                         and assistant_content_generated_this_step
                         and current_step_count == 1
                     ):
+                        if self.settings.verbose:
+                            self._print_verbose(
+                                f"End Strategy (Full) : Decided to [bold green]end[/bold green] after first response since no finalize_response tool is available"
+                            )
                         self.logger.info(
                             f"Agent '{self.name}' ending operation after first response since no finalize_response tool is available"
                         )
@@ -2698,6 +2811,7 @@ class Agent(Generic[CtxType, OutType]):
                     }
 
         final_agent_response_obj = AgentResponse(
+            agent_name = self.name,
             parts=intermediate_response_parts,
             output=final_output_object,
             history=message_history if current_run_save_history else [],
@@ -2785,6 +2899,7 @@ class Agent(Generic[CtxType, OutType]):
                 )
 
             return AgentResponse(
+                name = self.name,
                 output=None,
                 history=existing_messages if existing_messages else [],
             )  # type: ignore
@@ -3012,3 +3127,31 @@ def create_agent(
         - show_context (Optional[bool]): If True, the agent will show its context within its main generations.
         - verbose (bool): If True, the agent will print verbose output.
     """
+    return Agent.create(
+        name = name,
+        instructions = instructions,
+        planning = planning,
+        reflection = reflection,
+        context = context,
+        output_type = output_type,
+        model = model,
+        model_params = model_params,
+        max_steps = max_steps,
+        iterative_output = iterative_output,
+        iterative_context = iterative_context,
+        force_tools = force_tools,
+        end_strategy = end_strategy,
+        end_instructions = end_instructions,
+        context_strategy = context_strategy,
+        context_instructions = context_instructions,
+        update_context_before_response = update_context_before_response,
+        update_context_after_response = update_context_after_response,
+        add_context_to_prompt = add_context_to_prompt,
+        add_tools_to_prompt = add_tools_to_prompt,
+        keep_intermediate_steps = keep_intermediate_steps,
+        persona_override_intermediate_steps = persona_override_intermediate_steps,
+        prompt_template = prompt_template,
+        save_history = save_history,
+        show_context = show_context,
+        verbose = verbose,
+    )

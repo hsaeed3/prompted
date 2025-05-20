@@ -44,9 +44,10 @@ all = [
     "litellm>=1.61.3",
     "instructor>=1.8.2",
 ]
-examples = [
+samples = [
     "ipython",
     "ipykernel",
+    "typer",
 ]
 
 
@@ -105,6 +106,7 @@ venv = ".venv"
 [tool.uv.workspace]
 members = [
     "samples/trip_planner",
+    "samples/recipe_recommender",
 ]
 
 
