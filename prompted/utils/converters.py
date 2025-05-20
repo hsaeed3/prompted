@@ -33,7 +33,7 @@ from ..types.chat_completions import (
     MessageRole,
     MessageContentTextPart,
     Tool,
-    Completion
+    Completion,
 )
 from .formatting import format_to_markdown
 from .identification import is_message
@@ -541,7 +541,19 @@ def convert_to_pydantic_model(
                 # If field_name is provided and this is the first type, use it
                 if field_name and i == 0:
                     field_mapping.update(
-                        {field_name: convert_to_field(type_hint, description=description, default=default)[next(iter(convert_to_field(type_hint).keys()))]}
+                        {
+                            field_name: convert_to_field(
+                                type_hint,
+                                description=description,
+                                default=default,
+                            )[
+                                next(
+                                    iter(
+                                        convert_to_field(type_hint).keys()
+                                    )
+                                )
+                            ]
+                        }
                     )
                 else:
                     field_mapping.update(
@@ -680,9 +692,9 @@ def convert_to_selection_model(
 
 
 def convert_to_boolean_model(
-    name : str = "Confirmation",
-    description : str | None = None,
-    field_name : str = "choice"
+    name: str = "Confirmation",
+    description: str | None = None,
+    field_name: str = "choice",
 ) -> Type[BaseModel]:
     """
     Creates a Pydantic model for boolean confirmation/response.
@@ -699,7 +711,10 @@ def convert_to_boolean_model(
     """
     # Define the field for the model. It's required (...).
     model_fields_definitions = {
-        field_name: (bool, Field(..., description="The boolean confirmation value."))
+        field_name: (
+            bool,
+            Field(..., description="The boolean confirmation value."),
+        )
     }
 
     # Determine the docstring for the created model
@@ -755,7 +770,7 @@ def convert_to_input_audio_message(
         "type": "input_audio",
         "input_audio": {"data": audio, "format": format},
     }
-    
+
     if as_part:
         return audio_part
 
@@ -825,7 +840,7 @@ def convert_to_image_message(
         "type": "image_url",
         "image_url": {"url": image, "detail": detail},
     }
-    
+
     if as_part:
         return image_part
 
@@ -902,7 +917,7 @@ def convert_stream_to_completion(stream: Any) -> Completion:
         from ..types import (
             Completion,
             CompletionMessage,
-        )  
+        )
         from .identification import _get_value
 
         choices = []

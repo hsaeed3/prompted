@@ -79,6 +79,7 @@ class ChatSpecError(Exception):
     """
     An error raised by the ChatSpec package.
     """
+
     pass
 
 

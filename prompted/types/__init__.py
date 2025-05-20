@@ -9,6 +9,7 @@ and `Google A2A` specifications.
 import sys
 from importlib import import_module
 from typing import Any, Dict, Tuple, TYPE_CHECKING
+from types import MethodType
 
 if TYPE_CHECKING:
     from .chat_completions import *
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from .instructor import InstructorModeParam
 
 __all__ = [
+    "MethodType",
     "FunctionParameters",
     "Function",
     "Tool",

@@ -159,7 +159,8 @@ def stream_passthrough(completion: Any) -> Iterable[CompletionChunk]:
     except Exception as e:
         logger.debug(f"Error in stream_passthrough: {e}")
         return completion
-    
+
+
 __all__ = [
     "stream_passthrough",
 ]

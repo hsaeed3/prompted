@@ -18,14 +18,6 @@ from ..types.chat_completions import Message
 
 logger = logging.getLogger(__name__)
 
-__all__ = [
-    "is_completion",
-    "is_stream",
-    "is_message",
-    "has_system_prompt",
-    "has_tool_call",
-]
-
 
 # ------------------------------------------------------------------------------
 # Helper Methods
@@ -222,3 +214,12 @@ def has_tool_call(completion: Any) -> bool:
             return False
 
     return _has_tool_call(completion)
+
+
+__all__ = [
+    "is_completion",
+    "is_stream",
+    "is_message",
+    "has_system_prompt",
+    "has_tool_call",
+]

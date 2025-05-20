@@ -23,7 +23,9 @@ def test_convert_to_message():
     )
 
     # Test with schema=True (default behavior)
-    converted_schema = converters.convert_to_message(user, markdown=True, schema=True)
+    converted_schema = converters.convert_to_message(
+        user, markdown=True, schema=True
+    )
     print("With schema=True (default):")
     print(converted_schema)
 
