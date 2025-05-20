@@ -310,61 +310,6 @@ wheels = [
 ]
 
 [[package]]
-name = "chatspec"
-version = "0.0.17"
-source = { editable = "." }
-dependencies = [
-    { name = "cachetools" },
-    { name = "docstring-parser" },
-    { name = "pydantic" },
-    { name = "typing-inspect" },
-]
-
-[package.optional-dependencies]
-client = [
-    { name = "instructor" },
-    { name = "litellm" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "ipykernel" },
-    { name = "ipython" },
-    { name = "litellm" },
-    { name = "openai" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "rich" },
-    { name = "ruff" },
-    { name = "twine" },
-    { name = "uv" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "cachetools", specifier = ">=5.5.1" },
-    { name = "docstring-parser", specifier = ">=0.16" },
-    { name = "instructor", extras = ["litellm"], marker = "extra == 'client'" },
-    { name = "litellm", marker = "extra == 'client'" },
-    { name = "pydantic", specifier = ">=2.10.6" },
-    { name = "typing-inspect", specifier = ">=0.9.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "ipykernel" },
-    { name = "ipython" },
-    { name = "litellm" },
-    { name = "openai", specifier = ">=1.52.0,<2.0.0" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "rich" },
-    { name = "ruff" },
-    { name = "twine" },
-    { name = "uv" },
-]
-
-[[package]]
 name = "click"
 version = "8.1.8"
 source = { registry = "https://pypi.org/simple" }
@@ -1284,6 +1229,61 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a1/e1/bd15cb8ffdcfeeb2bdc215de3c3cffca11408d829e4b8416dcfe71ba8854/prompt_toolkit-3.0.50.tar.gz", hash = "sha256:544748f3860a2623ca5cd6d2795e7a14f3d0e1c3c9728359013f79877fc89bab", size = 429087 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e4/ea/d836f008d33151c7a1f62caf3d8dd782e4d15f6a43897f64480c2b8de2ad/prompt_toolkit-3.0.50-py3-none-any.whl", hash = "sha256:9b6427eb19e479d98acff65196a307c555eb567989e6d88ebbb1b509d9779198", size = 387816 },
+]
+
+[[package]]
+name = "prompted"
+version = "0.0.4"
+source = { editable = "." }
+dependencies = [
+    { name = "cachetools" },
+    { name = "docstring-parser" },
+    { name = "pydantic" },
+    { name = "typing-inspect" },
+]
+
+[package.optional-dependencies]
+client = [
+    { name = "instructor" },
+    { name = "litellm" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "ipykernel" },
+    { name = "ipython" },
+    { name = "litellm" },
+    { name = "openai" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "rich" },
+    { name = "ruff" },
+    { name = "twine" },
+    { name = "uv" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cachetools", specifier = ">=5.5.1" },
+    { name = "docstring-parser", specifier = ">=0.16" },
+    { name = "instructor", extras = ["litellm"], marker = "extra == 'client'" },
+    { name = "litellm", marker = "extra == 'client'" },
+    { name = "pydantic", specifier = ">=2.10.6" },
+    { name = "typing-inspect", specifier = ">=0.9.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "ipykernel" },
+    { name = "ipython" },
+    { name = "litellm" },
+    { name = "openai", specifier = ">=1.52.0,<2.0.0" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "rich" },
+    { name = "ruff" },
+    { name = "twine" },
+    { name = "uv" },
 ]
 
 [[package]]
