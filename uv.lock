@@ -1,15 +1,8 @@
 version = 1
-revision = 1
 requires-python = ">=3.10"
 resolution-markers = [
     "python_full_version >= '3.11'",
     "python_full_version < '3.11'",
-]
-
-[manifest]
-members = [
-    "prompted",
-    "recipe-recommender",
 ]
 
 [[package]]
@@ -1441,6 +1434,7 @@ samples = [
     { name = "ipykernel" },
     { name = "ipython", version = "8.36.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "ipython", version = "9.2.0", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -1477,9 +1471,9 @@ requires-dist = [
     { name = "mcp", marker = "extra == 'mcp'", specifier = ">=1.9.0" },
     { name = "pydantic", specifier = ">=2.10.6" },
     { name = "rich", specifier = ">=13.9.4" },
+    { name = "typer", marker = "extra == 'samples'" },
     { name = "typing-inspect", specifier = ">=0.9.0" },
 ]
-provides-extras = ["create", "mcp", "a2a", "all", "samples"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1971,17 +1965,6 @@ sdist = { url = "https://files.pythonhosted.org/packages/5a/a9/104ec9234c8448c43
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e1/67/921ec3024056483db83953ae8e48079ad62b92db7880013ca77632921dd0/readme_renderer-44.0-py3-none-any.whl", hash = "sha256:2fbca89b81a08526aadf1357a8c2ae889ec05fb03f5da67f9769c9a592166151", size = 13310 },
 ]
-
-[[package]]
-name = "recipe-recommender"
-version = "0.1.0"
-source = { virtual = "samples/recipe_recommender" }
-dependencies = [
-    { name = "prompted", extra = ["create", "samples"] },
-]
-
-[package.metadata]
-requires-dist = [{ name = "prompted", extras = ["create", "samples"], editable = "." }]
 
 [[package]]
 name = "referencing"
