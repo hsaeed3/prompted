@@ -74,9 +74,7 @@ def convert_to_message(
         role="user",
         markdown=False,
         use_parts=False,
-        schema=False: make_hashable(
-            (message, role, markdown, use_parts, schema)
-        )
+        schema=False: make_hashable((message, role, markdown, use_parts, schema))
     )
     def _convert_to_message(
         message: Any,
@@ -93,23 +91,17 @@ def convert_to_message(
                 try:
                     message = format_to_markdown(message, schema=schema)
                 except Exception as e:
-                    raise ValueError(
-                        f"Error converting object to markdown: {e}"
-                    )
+                    raise ValueError(f"Error converting object to markdown: {e}")
         else:
             if not isinstance(message, str):
                 try:
                     message = json.dumps(message)
                 except Exception as e:
-                    raise ValueError(
-                        f"Error converting object to JSON: {e}"
-                    )
+                    raise ValueError(f"Error converting object to JSON: {e}")
 
         if use_parts:
             message = MessageContentTextPart(type="text", text=message)
-        return Message(
-            role=role, content=message if not use_parts else [message]
-        )
+        return Message(role=role, content=message if not use_parts else [message])
 
     return _convert_to_message(message, role, markdown, use_parts, schema)
 
@@ -141,28 +133,20 @@ def convert_to_tool_definition(
     @cached(lambda tool: make_hashable(tool) if tool else "")
     def _convert_to_tool(tool: Any) -> Tool:
         try:
-            if (
-                isinstance(tool, dict)
-                and "type" in tool
-                and "function" in tool
-            ):
+            if isinstance(tool, dict) and "type" in tool and "function" in tool:
                 return tool
 
             if isinstance(tool, type) and issubclass(tool, BaseModel):
                 schema = tool.model_json_schema()
                 if "properties" in schema:
-                    for prop_name, prop_schema in schema[
-                        "properties"
-                    ].items():
+                    for prop_name, prop_schema in schema["properties"].items():
                         if "enum" in prop_schema:
                             # Handle enum fields as literals
                             prop_schema["enum"] = list(prop_schema["enum"])
                             prop_schema["title"] = prop_name.capitalize()
                             prop_schema["type"] = "string"
                         elif is_literal_type(prop_schema.get("type")):
-                            prop_schema["enum"] = list(
-                                get_args(prop_schema["type"])
-                            )
+                            prop_schema["enum"] = list(get_args(prop_schema["type"]))
                             prop_schema["title"] = prop_name.capitalize()
                             prop_schema["type"] = "string"
                         else:
@@ -209,23 +193,18 @@ def convert_to_tool_definition(
                         for doc_param in doc_info.params:
                             if doc_param.arg_name == name:
                                 if doc_param.description:
-                                    param_schema["description"] = (
-                                        doc_param.description
-                                    )
+                                    param_schema["description"] = doc_param.description
                                 # Check if parameter is required from docstring
                                 if (
                                     doc_param.description
-                                    and "required"
-                                    in doc_param.description.lower()
+                                    and "required" in doc_param.description.lower()
                                 ):
                                     if name not in required:
                                         required.append(name)
 
                     if param.annotation != inspect.Parameter.empty:
                         if is_literal_type(param.annotation):
-                            param_schema["enum"] = list(
-                                get_args(param.annotation)
-                            )
+                            param_schema["enum"] = list(get_args(param.annotation))
                         else:
                             if param.annotation == str:
                                 param_schema["type"] = "string"
@@ -263,9 +242,7 @@ def convert_to_tool_definition(
                 }
 
                 if doc_info and doc_info.short_description:
-                    function_schema["description"] = (
-                        doc_info.short_description
-                    )
+                    function_schema["description"] = doc_info.short_description
                     if doc_info.long_description:
                         function_schema["description"] += (
                             "\n\n" + doc_info.long_description
@@ -319,10 +296,7 @@ def convert_to_tool_definitions(
             else:
                 # Convert tool to proper format
                 converted = convert_to_tool_definition(tool)
-                if (
-                    "function" in converted
-                    and "name" in converted["function"]
-                ):
+                if "function" in converted and "name" in converted["function"]:
                     name = converted["function"]["name"]
                     tools_dict[name] = converted
                     # Attach original callable if applicable
@@ -352,10 +326,7 @@ def convert_to_field(
     """
 
     @cached(
-        lambda type_hint,
-        index=None,
-        description=None,
-        default=...: make_hashable(
+        lambda type_hint, index=None, description=None, default=...: make_hashable(
             (type_hint, index, description, default)
         )
     )
@@ -366,12 +337,8 @@ def convert_to_field(
         default: Any = ...,
     ) -> Dict[str, Any]:
         try:
-            base_name, _ = TYPE_MAPPING.get(
-                type_hint, ("value", type_hint)
-            )
-            field_name = (
-                f"{base_name}_{index}" if index is not None else base_name
-            )
+            base_name, _ = TYPE_MAPPING.get(type_hint, ("value", type_hint))
+            field_name = f"{base_name}_{index}" if index is not None else base_name
             return {
                 field_name: (
                     type_hint,
@@ -386,9 +353,7 @@ def convert_to_field(
 
 
 def convert_to_pydantic_model(
-    target: Union[
-        Type, Sequence[Type], Dict[str, Any], BaseModel, Callable
-    ],
+    target: Union[Type, Sequence[Type], Dict[str, Any], BaseModel, Callable],
     init: bool = False,
     name: Optional[str] = None,
     description: Optional[str] = None,
@@ -421,9 +386,7 @@ def convert_to_pydantic_model(
         )
     )
     def _convert_to_pydantic_model(
-        target: Union[
-            Type, Sequence[Type], Dict[str, Any], BaseModel, Callable
-        ],
+        target: Union[Type, Sequence[Type], Dict[str, Any], BaseModel, Callable],
         init: bool = False,
         name: Optional[str] = None,
         description: Optional[str] = None,
@@ -462,9 +425,7 @@ def convert_to_pydantic_model(
                 fields[field_name] = (
                     hint,
                     Field(
-                        default=getattr(target, field_name)
-                        if init
-                        else ...,
+                        default=getattr(target, field_name) if init else ...,
                         description=description,
                     ),
                 )
@@ -480,10 +441,7 @@ def convert_to_pydantic_model(
                 return model_class
             elif init:
                 return model_class(
-                    **{
-                        field_name: getattr(target, field_name)
-                        for field_name in hints
-                    }
+                    **{field_name: getattr(target, field_name) for field_name in hints}
                 )
             return model_class
 
@@ -493,9 +451,7 @@ def convert_to_pydantic_model(
 
             # Extract just the short description from the docstring
             doc_info = parse(target.__doc__ or "")
-            clean_description = (
-                doc_info.short_description if doc_info else None
-            )
+            clean_description = doc_info.short_description if doc_info else None
 
             return create_model(
                 name or target.__name__,
@@ -513,9 +469,7 @@ def convert_to_pydantic_model(
                 # Get the first (and only) key-value pair from field_mapping
                 _, field_value = next(iter(field_mapping.items()))
                 field_mapping = {field_name: field_value}
-            return create_model(
-                model_name, __doc__=description, **field_mapping
-            )
+            return create_model(model_name, __doc__=description, **field_mapping)
 
         # Handle sequences of types
         if isinstance(target, (list, tuple)):
@@ -531,22 +485,12 @@ def convert_to_pydantic_model(
                                 type_hint,
                                 description=description,
                                 default=default,
-                            )[
-                                next(
-                                    iter(
-                                        convert_to_field(type_hint).keys()
-                                    )
-                                )
-                            ]
+                            )[next(iter(convert_to_field(type_hint).keys()))]
                         }
                     )
                 else:
-                    field_mapping.update(
-                        convert_to_field(type_hint, index=i)
-                    )
-            return create_model(
-                model_name, __doc__=description, **field_mapping
-            )
+                    field_mapping.update(convert_to_field(type_hint, index=i))
+            return create_model(model_name, __doc__=description, **field_mapping)
 
         # Handle dictionaries
         if isinstance(target, dict):
@@ -554,10 +498,7 @@ def convert_to_pydantic_model(
                 model_class = create_model(
                     model_name,
                     __doc__=description,
-                    **{
-                        k: (type(v), Field(default=v))
-                        for k, v in target.items()
-                    },
+                    **{k: (type(v), Field(default=v)) for k, v in target.items()},
                 )
                 return model_class(**target)
             return create_model(model_name, __doc__=description, **target)
@@ -576,11 +517,7 @@ def convert_to_pydantic_model(
                     description = ""
                     if doc_info and doc_info.params:
                         description = next(
-                            (
-                                p.description
-                                for p in doc_info.params
-                                if p.arg_name == k
-                            ),
+                            (p.description for p in doc_info.params if p.arg_name == k),
                             "",
                         )
                     fields[k] = (
@@ -663,7 +600,9 @@ def convert_to_selection_model(
     model_docstring = description
     if model_docstring is None:
         if fields:
-            model_docstring = f"A model for selecting one option from: {', '.join(fields)}."
+            model_docstring = (
+                f"A model for selecting one option from: {', '.join(fields)}."
+            )
         else:  # Should not be reached due to the check above, but for completeness
             model_docstring = "A selection model."
 
@@ -861,16 +800,14 @@ def convert_completion_to_pydantic_model(
     and returns an instance of the provided Pydantic model.
     """
     try:
-        choices = getattr(completion, "choices", None) or completion.get(
-            "choices"
-        )
+        choices = getattr(completion, "choices", None) or completion.get("choices")
         if not choices or len(choices) == 0:
             raise ValueError("No choices found in the completion object.")
 
         first_choice = choices[0]
-        message = getattr(
-            first_choice, "message", None
-        ) or first_choice.get("message", {})
+        message = getattr(first_choice, "message", None) or first_choice.get(
+            "message", {}
+        )
         content = message.get("content")
 
         if content is None:
@@ -995,17 +932,15 @@ def convert_stream_to_message(stream: Any) -> Message:
                     else:
                         func_obj = _get_value(tool_call, "function", {})
                         if _get_value(func_obj, "arguments"):
-                            tool_calls_dict[index]["function"][
-                                "arguments"
-                            ] += _get_value(func_obj, "arguments")
+                            tool_calls_dict[index]["function"]["arguments"] += (
+                                _get_value(func_obj, "arguments")
+                            )
                         if _get_value(func_obj, "name"):
-                            tool_calls_dict[index]["function"]["name"] += (
-                                _get_value(func_obj, "name")
+                            tool_calls_dict[index]["function"]["name"] += _get_value(
+                                func_obj, "name"
                             )
                         if _get_value(tool_call, "id"):
-                            tool_calls_dict[index]["id"] = _get_value(
-                                tool_call, "id"
-                            )
+                            tool_calls_dict[index]["id"] = _get_value(tool_call, "id")
 
         message: Message = {
             "role": "assistant",
@@ -1019,7 +954,9 @@ def convert_stream_to_message(stream: Any) -> Message:
         raise
 
 
-def convert_completion_to_tool_calls(completion: Any) -> List[Dict[str, Any]]:
+def convert_completion_to_tool_calls(
+    completion: Any,
+) -> List[Dict[str, Any]]:
     """
     Extracts tool calls from a given chat completion object.
 
@@ -1042,7 +979,7 @@ def convert_completion_to_tool_calls(completion: Any) -> List[Dict[str, Any]]:
     except Exception as e:
         logger.debug(f"Error getting tool calls: {e}")
         return []
-    
+
 
 __all__ = [
     "convert_to_message",

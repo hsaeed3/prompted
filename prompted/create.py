@@ -38,9 +38,7 @@ else:
     AsyncInstructorClient = Any
     InstructorModeEnum = Any
     ModelResponse = Any  # Define fallback for ModelResponse
-    LitellmUnsupportedInputError = (
-        Exception  # Define fallback for the custom exception
-    )
+    LitellmUnsupportedInputError = Exception  # Define fallback for the custom exception
 
 import json
 from dataclasses import dataclass
@@ -89,15 +87,9 @@ from .types.chat_completions_params import (
 
 PromptType = TypeVar("PromptType", bound=Any)
 SchemaType = TypeVar("SchemaType", bound=Union[Type[BaseModel], Type[Any]])
-ContextType = TypeVar(
-    "ContextType", bound=Union[BaseModel, Dict[str, Any]]
-)
-AttributeType = TypeVar(
-    "AttributeType", bound=Union[List[str], Dict[str, float]]
-)
-OptionsType = TypeVar(
-    "OptionsType", bound=Set[Union[str, int, float, bool]]
-)
+ContextType = TypeVar("ContextType", bound=Union[BaseModel, Dict[str, Any]])
+AttributeType = TypeVar("AttributeType", bound=Union[List[str], Dict[str, float]])
+OptionsType = TypeVar("OptionsType", bound=Set[Union[str, int, float, bool]])
 
 # For return types
 ReturnType = TypeVar("ReturnType")
@@ -205,9 +197,7 @@ class _CreateClientDeps:
             self.initialize_litellm()
 
         self.instructor_sync = instructor.from_litellm(self.completion)
-        self.instructor_async = instructor.from_litellm(
-            self.completion_async
-        )
+        self.instructor_async = instructor.from_litellm(self.completion_async)
         # Store the actual Mode enum for internal use
         self._instructor_mode_enum = instructor.Mode
 
@@ -245,9 +235,7 @@ class _CreateClientDeps:
         return self.instructor_async.mode.value
 
     @instructor_async_mode.setter
-    def instructor_async_mode(
-        self, mode: InstructorModeParam = "tool_call"
-    ):
+    def instructor_async_mode(self, mode: InstructorModeParam = "tool_call"):
         """
         Set the instructor async mode.
         """
@@ -314,16 +302,11 @@ def _parse_string_schema(
                     # This is a basic attempt, might need more robust parsing
                     try:
                         # Extract content within brackets and evaluate
-                        literal_content = field_type_str[
-                            len("literal[") : -1
-                        ]
+                        literal_content = field_type_str[len("literal[") : -1]
                         # Safely evaluate the content (e.g., "1, 'a', True")
                         # This is risky, consider a safer approach if possible
                         # For now, let's assume simple comma-separated values
-                        options = [
-                            val.strip()
-                            for val in literal_content.split(",")
-                        ]
+                        options = [val.strip() for val in literal_content.split(",")]
                         # Attempt to infer types or keep as strings
                         evaluated_options = []
                         for opt in options:
@@ -335,9 +318,7 @@ def _parse_string_schema(
                                 evaluated_options.append(
                                     opt
                                 )  # Fallback to string if not JSON
-                        actual_field_type = Literal[
-                            tuple(evaluated_options)
-                        ]  # type: ignore
+                        actual_field_type = Literal[tuple(evaluated_options)]  # type: ignore
                         logger.debug(
                             f"Parsed Literal type for field '{field_name}': {actual_field_type}"
                         )
@@ -345,9 +326,7 @@ def _parse_string_schema(
                         logger.warning(
                             f"Failed to parse Literal type string '{field_type_str}' for field '{field_name}': {parse_literal_e}. Defaulting to Optional[str]."
                         )
-                        actual_field_type = Optional[
-                            str
-                        ]  # Fallback on error
+                        actual_field_type = Optional[str]  # Fallback on error
                 elif field_type_str.lower() in type_map:
                     actual_field_type = type_map[field_type_str.lower()]
                 else:
@@ -390,24 +369,38 @@ def _prepare_llm_call_params(
     stream: Optional[bool] = False,
 ) -> Dict[str, Any]:
     """Prepares the dictionary of parameters for litellm/instructor calls."""
-    logger.debug(
-        f"Preparing LLM call parameters for model: {model}, stream: {stream}"
-    )
+    logger.debug(f"Preparing LLM call parameters for model: {model}, stream: {stream}")
     call_params: Dict[str, Any] = {
         "model": model,  # litellm handles list of models for specific functions
         "messages": messages,
     }
-    if (
-        stream is not None
-    ):  # Ensure stream is always present for clarity, even if False
+    if stream is not None:  # Ensure stream is always present for clarity, even if False
         call_params["stream"] = stream
 
     if response_model:
         call_params["response_model"] = response_model
+
+    # Prioritize direct parameters for tools and tool_choice,
+    # then check within the 'params' dictionary.
     if tools:
         call_params["tools"] = list(tools)  # Ensure it's a list
+        logger.debug("Using 'tools' from direct _prepare_llm_call_params argument.")
+    elif params and params.get("tools") is not None:
+        call_params["tools"] = list(params["tools"])  # type: ignore
+        logger.debug(
+            "Using 'tools' from 'params' dictionary passed to _prepare_llm_call_params."
+        )
+
     if tool_choice:
         call_params["tool_choice"] = tool_choice
+        logger.debug(
+            "Using 'tool_choice' from direct _prepare_llm_call_params argument."
+        )
+    elif params and params.get("tool_choice") is not None:
+        call_params["tool_choice"] = params["tool_choice"]  # type: ignore
+        logger.debug(
+            "Using 'tool_choice' from 'params' dictionary passed to _prepare_llm_call_params."
+        )
 
     # Unpack relevant fields from Params
     if params:
@@ -455,9 +448,7 @@ def _prepare_llm_call_params(
         for field_name in client_param_fields:
             if field_name in params and params.get(field_name) is not None:  # type: ignore
                 call_params[field_name] = params.get(field_name)  # type: ignore
-    logger.debug(
-        f"Final LLM call parameters prepared: {', '.join(call_params.keys())}"
-    )
+    logger.debug(f"Final LLM call parameters prepared: {', '.join(call_params.keys())}")
     return call_params
 
 
@@ -477,9 +468,28 @@ def _format_compiled_messages(
 
     # 1. Start with existing messages if provided
     if existing_messages:
-        compiled_messages.extend(
-            format_messages(existing_messages)
-        )  # normalize_messages should handle List[Message]
+        # Handle potential nested message structures
+        for msg in existing_messages:
+            if isinstance(msg, dict) and "role" in msg and "content" in msg:
+                if isinstance(msg["content"], list) and all(
+                    is_message(m) for m in msg["content"]
+                ):
+                    # Content is a list of nested messages - extract and preserve their roles
+                    for nested_msg in msg["content"]:
+                        compiled_messages.append(nested_msg)
+                else:
+                    # Regular message
+                    compiled_messages.append(msg)
+            else:
+                # Add as is and rely on format_messages to normalize
+                compiled_messages.append(msg)
+
+        # Normalize any remaining non-standard formats
+        if compiled_messages:
+            compiled_messages = format_messages(compiled_messages)
+        else:
+            # If nothing was properly extracted, fall back to the old behavior
+            compiled_messages.extend(format_messages(existing_messages))
 
     # 2. Incorporate instructions as a system message
     if instructions is not None:
@@ -505,30 +515,43 @@ def _format_compiled_messages(
             )
     elif prompt is not None:
         if isinstance(prompt, str):
-            compiled_messages.append(
-                {"role": role_for_prompt, "content": prompt}
-            )
+            compiled_messages.append({"role": role_for_prompt, "content": prompt})
         elif is_message(prompt):  # Assumes prompt is a single Message dict
-            compiled_messages.append(prompt)  # type: ignore
+            # Check for nested messages
+            if isinstance(prompt.get("content"), list) and all(
+                is_message(m) for m in prompt["content"]
+            ):  # type: ignore
+                # Extract nested messages while preserving their roles
+                for nested_msg in prompt["content"]:  # type: ignore
+                    compiled_messages.append(nested_msg)
+            else:
+                # Regular message
+                compiled_messages.append(prompt)  # type: ignore
         elif isinstance(prompt, list) and all(
             is_message(m) for m in prompt
         ):  # Prompt is already a list of messages
-            compiled_messages.extend(prompt)  # type: ignore
+            # Process each message for potential nesting
+            for msg in prompt:
+                if isinstance(msg.get("content"), list) and all(
+                    is_message(m) for m in msg["content"]
+                ):  # type: ignore
+                    # Extract nested messages
+                    for nested_msg in msg["content"]:  # type: ignore
+                        compiled_messages.append(nested_msg)
+                else:
+                    # Regular message
+                    compiled_messages.append(msg)  # type: ignore
         else:
             # Attempt to coerce to string if not a recognized message format
             logger.debug(
                 f"Prompt type {type(prompt)} not a string or Message dict/list. Coercing to string for role '{role_for_prompt}'."
             )
-            compiled_messages.append(
-                {"role": role_for_prompt, "content": str(prompt)}
-            )
+            compiled_messages.append({"role": role_for_prompt, "content": str(prompt)})
 
     # 4. Ensure there's at least one message.
     if not compiled_messages:
         # This case should ideally be caught by prompt=None check, but as a safeguard:
-        raise ValueError(
-            "Cannot format messages: Resulting message list is empty."
-        )
+        raise ValueError("Cannot format messages: Resulting message list is empty.")
 
     # 5. If only system messages exist, add a default user message.
     if all(msg.get("role") == "system" for msg in compiled_messages):
@@ -606,10 +629,7 @@ class Create:
                 "max_retries",
             ]
             for field_name in client_param_fields:
-                if (
-                    field_name in params
-                    and params.get(field_name) is not None
-                ):  # type: ignore
+                if field_name in params and params.get(field_name) is not None:  # type: ignore
                     call_params[field_name] = params.get(field_name)  # type: ignore
         try:
             return Create.CLIENT_DEPS.embedding(**call_params)
@@ -636,9 +656,7 @@ class Create:
         Generates a text response or streams text from an LLM.
         If `model` is a list, multiple models are called (streaming not supported for this).
         """
-        logger.info(
-            f"Generating text with model(s): {model}, stream: {stream}"
-        )
+        logger.info(f"Generating text with model(s): {model}, stream: {stream}")
         Create._ensure_litellm_initialized()
         messages = _format_compiled_messages(
             prompt, instructions, existing_messages, role_for_prompt
@@ -654,13 +672,9 @@ class Create:
             )  # type: ignore
             try:
                 # Use batch_completion_models_all_responses for multiple models
-                logger.info(
-                    f"Calling batch completion for {len(model)} models"
-                )
+                logger.info(f"Calling batch completion for {len(model)} models")
                 responses: List[ModelResponse] = (
-                    Create.CLIENT_DEPS.batch_completion_models(
-                        **call_params
-                    )
+                    Create.CLIENT_DEPS.batch_completion_models(**call_params)
                 )  # type: ignore
                 return [
                     str(r.choices[0].message.content)
@@ -682,9 +696,7 @@ class Create:
             )
             try:
                 logger.info(f"Calling completion for model {model}")
-                response_or_stream = Create.CLIENT_DEPS.completion(
-                    **call_params
-                )
+                response_or_stream = Create.CLIENT_DEPS.completion(**call_params)
                 if stream:
                     logger.debug("Returning stream wrapper")
                     return response_or_stream  # type: ignore
@@ -694,12 +706,8 @@ class Create:
                         and response_or_stream.choices[0].message
                         and response_or_stream.choices[0].message.content
                     ):
-                        return str(
-                            response_or_stream.choices[0].message.content
-                        )
-                    logger.warning(
-                        f"No content in LLM response: {response_or_stream}"
-                    )
+                        return str(response_or_stream.choices[0].message.content)
+                    logger.warning(f"No content in LLM response: {response_or_stream}")
                     return ""
             except Exception as e:
                 logger.error(
@@ -758,10 +766,8 @@ class Create:
             )
             try:
                 logger.info(f"Calling async completion for model {model}")
-                response_or_stream = (
-                    await Create.CLIENT_DEPS.completion_async(
-                        **call_params
-                    )
+                response_or_stream = await Create.CLIENT_DEPS.completion_async(
+                    **call_params
                 )
                 if stream:
                     logger.debug("Returning async stream wrapper")
@@ -772,9 +778,7 @@ class Create:
                         and response_or_stream.choices[0].message
                         and response_or_stream.choices[0].message.content
                     ):
-                        return str(
-                            response_or_stream.choices[0].message.content
-                        )
+                        return str(response_or_stream.choices[0].message.content)
                     logger.warning(
                         f"No content in async LLM response: {response_or_stream}"
                     )
@@ -819,9 +823,7 @@ class Create:
         client = Create._get_sync_instructor_client()
         actual_response_model: Type[BaseModel]
         default_model_name = name_override or "GeneratedSchema"
-        default_model_desc = (
-            description_override or "Schema generated from prompt."
-        )
+        default_model_desc = description_override or "Schema generated from prompt."
 
         if isinstance(schema, str):
             actual_response_model = _parse_string_schema(
@@ -833,18 +835,14 @@ class Create:
                 actual_response_model.__name__ = name_override
             if description_override:
                 actual_response_model.__doc__ = description_override
-        elif callable(schema) and not isinstance(
-            schema, type
-        ):  # A function
+        elif callable(schema) and not isinstance(schema, type):  # A function
             m = convert_to_pydantic_model(
                 schema,
                 name=name_override or schema.__name__,
                 description=description_override or schema.__doc__,
             )
             if not (isinstance(m, type) and issubclass(m, BaseModel)):
-                raise TypeError(
-                    "Could not convert function to Pydantic Model"
-                )
+                raise TypeError("Could not convert function to Pydantic Model")
             actual_response_model = m
         elif isinstance(schema, type):  # Basic type like str, int
             m = convert_to_pydantic_model(
@@ -853,9 +851,7 @@ class Create:
                 description=description_override,
             )
             if not (isinstance(m, type) and issubclass(m, BaseModel)):
-                raise TypeError(
-                    "Could not convert basic type to Pydantic Model"
-                )
+                raise TypeError("Could not convert basic type to Pydantic Model")
             actual_response_model = m
         else:
             raise TypeError(
@@ -870,9 +866,7 @@ class Create:
                 prompt += f" Please generate {n} distinct instances."
 
         # Handle iterative generation
-        if (
-            iterative and n == 1
-        ):  # Iterative only makes sense for n=1 for now.
+        if iterative and n == 1:  # Iterative only makes sense for n=1 for now.
             if not actual_response_model.model_fields:
                 logger.warning(
                     f"Schema {actual_response_model.__name__} has no fields for iterative generation."
@@ -923,22 +917,16 @@ class Create:
                         stream=False,  # Stream within iterative is complex
                     )
                     try:
-                        logger.debug(
-                            f"Generating field '{field_name}' iteratively"
-                        )
+                        logger.debug(f"Generating field '{field_name}' iteratively")
                         client.mode = CLIENT_DEPS._instructor_mode_enum(
                             mode
                         )  # Use stored Enum
-                        field_response = client.chat.completions.create(
-                            **call_params
-                        )
+                        field_response = client.chat.completions.create(**call_params)
                         client.mode = CLIENT_DEPS._instructor_mode_enum(
                             "tool_call"
                         )  # Use stored Enum
                         if hasattr(field_response, field_name):
-                            final_data[field_name] = getattr(
-                                field_response, field_name
-                            )
+                            final_data[field_name] = getattr(field_response, field_name)
                             current_context_messages.append(
                                 {
                                     "role": "assistant",
@@ -975,11 +963,7 @@ class Create:
 
         # Adjust prompt for n > 1 if not already handled
         final_prompt_str = str(prompt)
-        if (
-            n > 1
-            and f"generate {n} distinct instances"
-            not in final_prompt_str.lower()
-        ):
+        if n > 1 and f"generate {n} distinct instances" not in final_prompt_str.lower():
             final_prompt_str += f" Please generate {n} distinct instances."
 
         messages = _format_compiled_messages(
@@ -1000,9 +984,7 @@ class Create:
             logger.info(
                 f"Calling instructor with mode {mode} for schema {actual_response_model.__name__}"
             )
-            client.mode = CLIENT_DEPS._instructor_mode_enum(
-                mode
-            )  # Use stored Enum
+            client.mode = CLIENT_DEPS._instructor_mode_enum(mode)  # Use stored Enum
             response = client.chat.completions.create(**call_params)
             client.mode = CLIENT_DEPS._instructor_mode_enum(
                 "tool_call"
@@ -1040,9 +1022,7 @@ class Create:
         client = Create._get_async_instructor_client()
         actual_response_model: Type[BaseModel]
         default_model_name = name_override or "GeneratedSchema"
-        default_model_desc = (
-            description_override or "Schema generated from prompt."
-        )
+        default_model_desc = description_override or "Schema generated from prompt."
 
         if isinstance(schema, str):
             actual_response_model = _parse_string_schema(
@@ -1054,18 +1034,14 @@ class Create:
                 actual_response_model.__name__ = name_override
             if description_override:
                 actual_response_model.__doc__ = description_override
-        elif callable(schema) and not isinstance(
-            schema, type
-        ):  # A function
+        elif callable(schema) and not isinstance(schema, type):  # A function
             m = convert_to_pydantic_model(
                 schema,
                 name=name_override or schema.__name__,
                 description=description_override or schema.__doc__,
             )
             if not (isinstance(m, type) and issubclass(m, BaseModel)):
-                raise TypeError(
-                    "Could not convert function to Pydantic Model"
-                )
+                raise TypeError("Could not convert function to Pydantic Model")
             actual_response_model = m
         elif isinstance(schema, type):  # Basic type like str, int
             m = convert_to_pydantic_model(
@@ -1074,9 +1050,7 @@ class Create:
                 description=description_override,
             )
             if not (isinstance(m, type) and issubclass(m, BaseModel)):
-                raise TypeError(
-                    "Could not convert basic type to Pydantic Model"
-                )
+                raise TypeError("Could not convert basic type to Pydantic Model")
             actual_response_model = m
         else:
             raise TypeError(
@@ -1136,10 +1110,8 @@ class Create:
                         client.mode = CLIENT_DEPS._instructor_mode_enum(
                             mode
                         )  # Use stored Enum
-                        field_response = (
-                            await client.chat.completions.create(
-                                **call_params
-                            )
+                        field_response = await client.chat.completions.create(
+                            **call_params
                         )
                         client.mode = CLIENT_DEPS._instructor_mode_enum(
                             "tool_call"
@@ -1176,11 +1148,7 @@ class Create:
             List[actual_response_model] if n > 1 else actual_response_model
         )  # type: ignore
         final_prompt_str = str(prompt)
-        if (
-            n > 1
-            and f"generate {n} distinct instances"
-            not in final_prompt_str.lower()
-        ):
+        if n > 1 and f"generate {n} distinct instances" not in final_prompt_str.lower():
             final_prompt_str += f" Please generate {n} distinct instances."
 
         messages = _format_compiled_messages(
@@ -1197,9 +1165,7 @@ class Create:
             stream=stream,
         )
         try:
-            client.mode = CLIENT_DEPS._instructor_mode_enum(
-                mode
-            )  # Use stored Enum
+            client.mode = CLIENT_DEPS._instructor_mode_enum(mode)  # Use stored Enum
             response = await client.chat.completions.create(**call_params)
             client.mode = CLIENT_DEPS._instructor_mode_enum(
                 "tool_call"
@@ -1248,9 +1214,7 @@ class Create:
 
         options_list_str = sorted([str(opt) for opt in options])
         literal_options_type = Literal[tuple(options_list_str)]  # type: ignore
-        logger.debug(
-            f"Converted options to sorted list of strings: {options_list_str}"
-        )
+        logger.debug(f"Converted options to sorted list of strings: {options_list_str}")
 
         selection_model_name = name_override or "OptionSelection"
         selection_model_desc = (
@@ -1285,9 +1249,7 @@ class Create:
                 __doc__=selection_model_desc,
             )
             selection_schema = SelectionModelSchema
-        logger.info(
-            f"Generated selection schema: {selection_schema.__name__}"
-        )
+        logger.info(f"Generated selection schema: {selection_schema.__name__}")
 
         final_prompt: PromptType
         if prompt is None:
@@ -1385,22 +1347,16 @@ class Create:
                 __doc__=selection_model_desc,
             )
             selection_schema = SelectionModelSchema
-        logger.info(
-            f"Generated selection schema (async): {selection_schema.__name__}"
-        )
+        logger.info(f"Generated selection schema (async): {selection_schema.__name__}")
 
         final_prompt: PromptType
         if prompt is None:
             final_prompt = f"Please select {n if n > 1 else 'an'} option from the available choices: {', '.join(options_list_str)}."
-            logger.info(
-                f"Prompt not provided, generated default prompt (async)."
-            )
+            logger.info(f"Prompt not provided, generated default prompt (async).")
             logger.debug(f"Default prompt (async): '{final_prompt}'")
         else:
             final_prompt = prompt
-            logger.debug(
-                f"Using provided prompt (async): '{final_prompt}'"
-            )
+            logger.debug(f"Using provided prompt (async): '{final_prompt}'")
 
         logger.info(
             f"Calling Create.async_from_schema with schema '{selection_schema.__name__}' for option selection (async)."
@@ -1493,20 +1449,15 @@ class Create:
             context_schema_type = type(context)
             context_instance = context
             original_data = context.model_dump()
-            logger.debug(
-                f"Context is a BaseModel: {context_schema_type.__name__}"
-            )
+            logger.debug(f"Context is a BaseModel: {context_schema_type.__name__}")
         elif isinstance(context, dict):
-            logger.debug(
-                "Context is a dict, attempting to create dynamic model."
-            )
+            logger.debug("Context is a dict, attempting to create dynamic model.")
             temp_model_name = name_override or "DynamicContextModel"
             try:
                 context_schema_type = create_model(
                     temp_model_name,
                     **{
-                        k: (type(v), Field(default=v))
-                        for k, v in context.items()
+                        k: (type(v), Field(default=v)) for k, v in context.items()
                     },  # Use pydantic.Field
                 )
                 context_instance = context_schema_type(**context)  # type: ignore
@@ -1534,9 +1485,7 @@ class Create:
             or context_schema_type.__doc__
             or "Context data structure."
         )
-        current_values_str = json.dumps(
-            original_data, indent=2, default=str
-        )
+        current_values_str = json.dumps(original_data, indent=2, default=str)
         logger.info(f"Processing context update for '{context_name}'.")
         logger.debug(
             f"Current context values for '{context_name}': {current_values_str}"
@@ -1567,15 +1516,11 @@ class Create:
             ),  # Use pydantic.Field # type: ignore
             __base__=BaseModel,
         )
-        logger.debug(
-            f"Created FieldSelectionModel: {FieldSelectionModel.__name__}"
-        )
+        logger.debug(f"Created FieldSelectionModel: {FieldSelectionModel.__name__}")
 
         fields_to_update: List[str] = []
         try:
-            client.mode = CLIENT_DEPS._instructor_mode_enum(
-                mode
-            )  # Use stored Enum
+            client.mode = CLIENT_DEPS._instructor_mode_enum(mode)  # Use stored Enum
             logger.debug(
                 f"Calling LLM to select fields for '{context_name}' using model {model}."
             )
@@ -1591,9 +1536,7 @@ class Create:
             client.mode = CLIENT_DEPS._instructor_mode_enum(
                 "tool_call"
             )  # Use stored Enum
-            fields_to_update = getattr(
-                selected_fields_response, "fields_to_update", []
-            )
+            fields_to_update = getattr(selected_fields_response, "fields_to_update", [])
             logger.info(
                 f"LLM selected fields to update for '{context_name}': {fields_to_update}"
             )
@@ -1611,9 +1554,7 @@ class Create:
             return context  # type: ignore
 
         updated_values_data: Dict[str, Any] = {}
-        fields_to_generate_for = [
-            f for f in fields_to_update if f in field_names
-        ]
+        fields_to_generate_for = [f for f in fields_to_update if f in field_names]
         logger.debug(
             f"Validated fields to generate values for: {fields_to_generate_for}"
         )
@@ -1669,9 +1610,7 @@ class Create:
                     )  # Use stored Enum
                     field_val_model = client.chat.completions.create(
                         model=model,
-                        messages=_format_compiled_messages(
-                            iterative_prompt_str
-                        ),
+                        messages=_format_compiled_messages(iterative_prompt_str),
                         response_model=SingleFieldUpdateModel,
                         **model_params if model_params else {},
                         stream=False,
@@ -1723,13 +1662,9 @@ class Create:
                 f"{base_generation_instructions_str}\n\n"
                 f"Provide new values for the following fields: {', '.join(fields_to_generate_for)}."
             )
-            logger.debug(
-                f"Bulk update prompt for '{context_name}': {bulk_prompt_str}"
-            )
+            logger.debug(f"Bulk update prompt for '{context_name}': {bulk_prompt_str}")
             try:
-                client.mode = CLIENT_DEPS._instructor_mode_enum(
-                    mode
-                )  # Use stored Enum
+                client.mode = CLIENT_DEPS._instructor_mode_enum(mode)  # Use stored Enum
                 bulk_response_model = client.chat.completions.create(
                     model=model,
                     messages=_format_compiled_messages(bulk_prompt_str),
@@ -1741,9 +1676,7 @@ class Create:
                     "tool_call"
                 )  # Use stored Enum
                 if stream:
-                    logger.info(
-                        f"Streaming bulk update response for '{context_name}'."
-                    )
+                    logger.info(f"Streaming bulk update response for '{context_name}'.")
                     return bulk_response_model  # type: ignore
                 updated_values_data = bulk_response_model.model_dump(
                     exclude_none=True, exclude_unset=True
@@ -1784,9 +1717,7 @@ class Create:
         )
         if update_context:
             if context_instance:
-                final_context = context_instance.model_copy(
-                    update=updated_values_data
-                )
+                final_context = context_instance.model_copy(update=updated_values_data)
             else:
                 final_context = context_schema_type(
                     **{**original_data, **updated_values_data}
@@ -1892,8 +1823,7 @@ class Create:
                 context_schema_type = create_model(
                     temp_model_name,
                     **{
-                        k: (type(v), Field(default=v))
-                        for k, v in context.items()
+                        k: (type(v), Field(default=v)) for k, v in context.items()
                     },  # Use pydantic.Field # type: ignore
                 )
                 context_instance = context_schema_type(**context)  # type: ignore
@@ -1910,9 +1840,7 @@ class Create:
                     "If context is a dict, it must be convertible to a Pydantic model, or use a BaseModel instance directly (async)."
                 ) from e_dict_model_async
         else:
-            logger.error(
-                f"Unsupported context type (async): {type(context)}"
-            )
+            logger.error(f"Unsupported context type (async): {type(context)}")
             raise TypeError(
                 "Context must be a Pydantic BaseModel instance or a dictionary (async)."
             )
@@ -1923,12 +1851,8 @@ class Create:
             or context_schema_type.__doc__
             or "Context data structure."
         )
-        current_values_str = json.dumps(
-            original_data, indent=2, default=str
-        )
-        logger.info(
-            f"Processing async context update for '{context_name}'."
-        )
+        current_values_str = json.dumps(original_data, indent=2, default=str)
+        logger.info(f"Processing async context update for '{context_name}'.")
         logger.debug(
             f"Current context values for '{context_name}' (async): {current_values_str}"
         )
@@ -1963,9 +1887,7 @@ class Create:
 
         fields_to_update: List[str] = []
         try:
-            client.mode = CLIENT_DEPS._instructor_mode_enum(
-                mode
-            )  # Use stored Enum
+            client.mode = CLIENT_DEPS._instructor_mode_enum(mode)  # Use stored Enum
             logger.debug(
                 f"Calling LLM to select fields for '{context_name}' using model {model} (async)."
             )
@@ -1981,9 +1903,7 @@ class Create:
             client.mode = CLIENT_DEPS._instructor_mode_enum(
                 "tool_call"
             )  # Use stored Enum
-            fields_to_update = getattr(
-                selected_fields_response, "fields_to_update", []
-            )
+            fields_to_update = getattr(selected_fields_response, "fields_to_update", [])
             logger.info(
                 f"LLM selected fields to update for '{context_name}' (async): {fields_to_update}"
             )
@@ -2001,9 +1921,7 @@ class Create:
             return context  # type: ignore
 
         updated_values_data: Dict[str, Any] = {}
-        fields_to_generate_for = [
-            f for f in fields_to_update if f in field_names
-        ]
+        fields_to_generate_for = [f for f in fields_to_update if f in field_names]
         logger.debug(
             f"Validated fields to generate values for (async): {fields_to_generate_for}"
         )
@@ -2058,9 +1976,7 @@ class Create:
                     )  # Use stored Enum
                     field_val_model = await client.chat.completions.create(
                         model=model,
-                        messages=_format_compiled_messages(
-                            iterative_prompt_str
-                        ),
+                        messages=_format_compiled_messages(iterative_prompt_str),
                         response_model=SingleFieldUpdateModel,
                         **model_params if model_params else {},
                         stream=False,
@@ -2075,9 +1991,7 @@ class Create:
                         logger.info(
                             f"Iteratively generated value for '{field_name}' in '{context_name}' (async): Type {type(val)}"
                         )
-                        logger.debug(
-                            f"Value for '{field_name}' (async): {val}"
-                        )
+                        logger.debug(f"Value for '{field_name}' (async): {val}")
                     else:
                         logger.warning(
                             f"Iterative generation (async): LLM did not return field '{field_name}' for '{context_name}'."
@@ -2118,9 +2032,7 @@ class Create:
                 f"Bulk update prompt for '{context_name}' (async): {bulk_prompt_str}"
             )
             try:
-                client.mode = CLIENT_DEPS._instructor_mode_enum(
-                    mode
-                )  # Use stored Enum
+                client.mode = CLIENT_DEPS._instructor_mode_enum(mode)  # Use stored Enum
                 bulk_response_model = await client.chat.completions.create(
                     model=model,
                     messages=_format_compiled_messages(bulk_prompt_str),
@@ -2170,9 +2082,7 @@ class Create:
         )
         if update_context:
             if context_instance:
-                final_context = context_instance.model_copy(
-                    update=updated_values_data
-                )
+                final_context = context_instance.model_copy(update=updated_values_data)
             else:
                 final_context = context_schema_type(
                     **{**original_data, **updated_values_data}
@@ -2232,9 +2142,7 @@ class Create:
 
         if isinstance(attributes, list):
             attribute_list = attributes
-            logger.debug(
-                f"Processing list of {len(attribute_list)} attributes."
-            )
+            logger.debug(f"Processing list of {len(attribute_list)} attributes.")
         elif isinstance(attributes, dict):
             attribute_list = [
                 f"Influenced by attributes: {', '.join(attributes.keys())} with weights {attributes}"
@@ -2247,9 +2155,7 @@ class Create:
                     "Using a dict of attributes for from_attributes will generate a single response influenced by all. For distinct responses per attribute, use a list."
                 )
         else:
-            logger.error(
-                f"Unsupported attributes type: {type(attributes).__name__}"
-            )
+            logger.error(f"Unsupported attributes type: {type(attributes).__name__}")
             raise TypeError(
                 "Attributes must be a list of strings or a dictionary of attribute:weight."
             )
@@ -2266,15 +2172,11 @@ class Create:
 
             base_actual_schema: Type[BaseModel]
             if isinstance(schema, str):
-                logger.debug(
-                    f"Parsing string schema for attributes: '{schema}'"
-                )
+                logger.debug(f"Parsing string schema for attributes: '{schema}'")
                 base_actual_schema = _parse_string_schema(
                     schema, default_model_name, default_model_desc
                 )
-            elif isinstance(schema, type) and issubclass(
-                schema, BaseModel
-            ):
+            elif isinstance(schema, type) and issubclass(schema, BaseModel):
                 logger.debug(
                     f"Using provided Pydantic BaseModel for attributes: {schema.__name__}"
                 )
@@ -2289,8 +2191,7 @@ class Create:
                     description=description_override or schema.__doc__,
                 )
                 if not (
-                    isinstance(m_callable, type)
-                    and issubclass(m_callable, BaseModel)
+                    isinstance(m_callable, type) and issubclass(m_callable, BaseModel)
                 ):
                     logger.error(
                         "Failed to convert callable to Pydantic Model for attributes."
@@ -2305,14 +2206,10 @@ class Create:
                 )
                 m_type = convert_to_pydantic_model(
                     schema,
-                    name=name_override
-                    or f"{schema.__name__}AttributedResponse",
+                    name=name_override or f"{schema.__name__}AttributedResponse",
                     description=description_override,
                 )
-                if not (
-                    isinstance(m_type, type)
-                    and issubclass(m_type, BaseModel)
-                ):
+                if not (isinstance(m_type, type) and issubclass(m_type, BaseModel)):
                     logger.error(
                         "Failed to convert basic type to Pydantic Model for attributes."
                     )
@@ -2376,8 +2273,7 @@ class Create:
                 existing_messages=existing_messages,
                 role_for_prompt=role_for_prompt,
                 mode=mode,
-                name_override=name_override
-                or f"ListOf{base_actual_schema.__name__}",
+                name_override=name_override or f"ListOf{base_actual_schema.__name__}",
                 description_override=description_override
                 or f"A list of {base_actual_schema.__name__} items, each styled by an attribute.",
             )
@@ -2390,29 +2286,26 @@ class Create:
                 f"Processing attribute {attr_idx + 1}/{len(attribute_list)}: '{attr}'"
             )
             current_instructions = (
-                str(instructions or "")
-                + f"\nRespond in a style that is: {attr}."
+                str(instructions or "") + f"\nRespond in a style that is: {attr}."
             )
             current_prompt = prompt
 
             if current_prompt is None and not instructions:
-                current_prompt = f"Generate data for the schema, embodying the attribute: {attr}."
+                current_prompt = (
+                    f"Generate data for the schema, embodying the attribute: {attr}."
+                )
                 logger.debug(
                     f"Generated default prompt for attribute '{attr}': {current_prompt}"
                 )
 
-            logger.debug(
-                f"Current prompt for attribute '{attr}': {current_prompt}"
-            )
+            logger.debug(f"Current prompt for attribute '{attr}': {current_prompt}")
             logger.debug(
                 f"Current instructions for attribute '{attr}': {current_instructions}"
             )
 
             try:
                 if stream and len(attribute_list) == 1:
-                    logger.info(
-                        f"Streaming single attribute ('{attr}') response."
-                    )
+                    logger.info(f"Streaming single attribute ('{attr}') response.")
                     yield from Create.from_schema(  # type: ignore
                         schema=schema,
                         prompt=current_prompt,
@@ -2449,9 +2342,7 @@ class Create:
                     mode=mode,
                 )
                 results.append(result)  # type: ignore
-                logger.debug(
-                    f"Successfully generated response for attribute '{attr}'."
-                )
+                logger.debug(f"Successfully generated response for attribute '{attr}'.")
             except Exception as e_attr:
                 logger.error(
                     f"Error generating response for attribute '{attr}': {e_attr}",
@@ -2512,9 +2403,7 @@ class Create:
             logger.error(
                 f"Unsupported attributes type (async): {type(attributes).__name__}"
             )
-            raise TypeError(
-                "Attributes must be a list of strings or a dictionary."
-            )
+            raise TypeError("Attributes must be a list of strings or a dictionary.")
 
         if stream and len(attribute_list) > 1:
             logger.info(
@@ -2534,9 +2423,7 @@ class Create:
                 base_actual_schema = _parse_string_schema(
                     schema, default_model_name, default_model_desc
                 )
-            elif isinstance(schema, type) and issubclass(
-                schema, BaseModel
-            ):
+            elif isinstance(schema, type) and issubclass(schema, BaseModel):
                 logger.debug(
                     f"Using provided Pydantic BaseModel for attributes (async): {schema.__name__}"
                 )
@@ -2551,8 +2438,7 @@ class Create:
                     description=description_override or schema.__doc__,
                 )
                 if not (
-                    isinstance(m_callable, type)
-                    and issubclass(m_callable, BaseModel)
+                    isinstance(m_callable, type) and issubclass(m_callable, BaseModel)
                 ):
                     logger.error(
                         "Failed to convert callable to Pydantic Model for attributes (async)."
@@ -2567,14 +2453,10 @@ class Create:
                 )
                 m_type = convert_to_pydantic_model(
                     schema,
-                    name=name_override
-                    or f"{schema.__name__}AttributedResponse",
+                    name=name_override or f"{schema.__name__}AttributedResponse",
                     description=description_override,
                 )
-                if not (
-                    isinstance(m_type, type)
-                    and issubclass(m_type, BaseModel)
-                ):
+                if not (isinstance(m_type, type) and issubclass(m_type, BaseModel)):
                     logger.error(
                         "Failed to convert basic type to Pydantic Model for attributes (async)."
                     )
@@ -2638,8 +2520,7 @@ class Create:
                 existing_messages=existing_messages,
                 role_for_prompt=role_for_prompt,
                 mode=mode,
-                name_override=name_override
-                or f"ListOf{base_actual_schema.__name__}",
+                name_override=name_override or f"ListOf{base_actual_schema.__name__}",
                 description_override=description_override
                 or f"A list of {base_actual_schema.__name__} items, each styled by an attribute.",
             )
@@ -2653,12 +2534,13 @@ class Create:
                 f"Processing attribute {attr_idx + 1}/{len(attribute_list)}: '{attr}' (async)"
             )
             current_instructions = (
-                str(instructions or "")
-                + f"\nRespond in a style that is: {attr}."
+                str(instructions or "") + f"\nRespond in a style that is: {attr}."
             )
             current_prompt = prompt
             if current_prompt is None and not instructions:
-                current_prompt = f"Generate data for the schema, embodying the attribute: {attr}."
+                current_prompt = (
+                    f"Generate data for the schema, embodying the attribute: {attr}."
+                )
                 logger.debug(
                     f"Generated default prompt for attribute '{attr}' (async): {current_prompt}"
                 )
@@ -2728,9 +2610,7 @@ class Create:
 
     @staticmethod
     def from_function(
-        model: Optional[
-            ModelParam
-        ] = "openai/gpt-4o-mini",  # Allow override
+        model: Optional[ModelParam] = "openai/gpt-4o-mini",  # Allow override
         model_params: Optional[Params] = None,
         iterative: bool = False,
         n: int = 1,  # n > 1 implies List[ReturnType]
@@ -2758,12 +2638,8 @@ class Create:
             @functools.wraps(func)
             async def async_wrapper(
                 *args: Any, **kwargs: Any
-            ) -> Union[
-                ReturnType, List[ReturnType], Iterable[ReturnType], Any
-            ]:
-                logger.info(
-                    f"Calling LLM-powered function: {func.__name__} (async)"
-                )
+            ) -> Union[ReturnType, List[ReturnType], Iterable[ReturnType], Any]:
+                logger.info(f"Calling LLM-powered function: {func.__name__} (async)")
                 sig = inspect.signature(func)
                 bound_args = sig.bind(*args, **kwargs)
                 # Use try-except for apply_defaults as it might fail for variadic args without defaults
@@ -2806,26 +2682,22 @@ class Create:
                 base_prompt_parts = []
                 if docstring:
                     base_prompt_parts.append(docstring)
-                
+
                 # Include provided arguments in the prompt
                 if provided_args:
                     # Exclude self/cls if they exist and are the first argument
                     # This is a heuristic for methods
                     args_to_show = provided_args.copy()
                     first_param_name = next(iter(sig.parameters), None)
-                    if (
-                        first_param_name in args_to_show
-                        and first_param_name in ["self", "cls"]
-                    ):
+                    if first_param_name in args_to_show and first_param_name in [
+                        "self",
+                        "cls",
+                    ]:
                         del args_to_show[first_param_name]
 
                     if args_to_show:
-                        provided_args_str = json.dumps(
-                            args_to_show, default=str
-                        )
-                        base_prompt_parts.append(
-                            f"Input: {provided_args_str}"
-                        )
+                        provided_args_str = json.dumps(args_to_show, default=str)
+                        base_prompt_parts.append(f"Input: {provided_args_str}")
                     else:
                         logger.debug(
                             "No non-self/cls arguments provided to the decorated function."
@@ -2842,11 +2714,7 @@ class Create:
                 )
 
                 # Determine the response schema and method based on return type
-                if (
-                    return_type is str
-                    or return_type is Any
-                    or return_type is None
-                ):
+                if return_type is str or return_type is Any or return_type is None:
                     # Default to from_prompt for simple string/any/None return types
                     logger.debug(
                         f"Return type is {return_type}, defaulting to async_from_prompt."
@@ -2888,8 +2756,7 @@ class Create:
                     try:
                         response_schema = convert_to_pydantic_model(
                             return_type,
-                            name=name_override
-                            or f"{func.__name__}Response",
+                            name=name_override or f"{func.__name__}Response",
                             description=description_override
                             or func.__doc__
                             or f"Structured response for function {func.__name__}",
@@ -2902,9 +2769,7 @@ class Create:
                             hasattr(response_schema, "__origin__")
                             and response_schema.__origin__ is list
                             and response_schema.__args__
-                            and issubclass(
-                                response_schema.__args__[0], BaseModel
-                            )
+                            and issubclass(response_schema.__args__[0], BaseModel)
                         ):  # type: ignore
                             raise TypeError(
                                 f"Return type hint {return_type} could not be converted to a Pydantic schema."
@@ -2955,12 +2820,8 @@ class Create:
                 @functools.wraps(func)
                 def sync_wrapper(
                     *args: Any, **kwargs: Any
-                ) -> Union[
-                    ReturnType, List[ReturnType], Iterable[ReturnType], Any
-                ]:
-                    logger.info(
-                        f"Calling LLM-powered function: {func.__name__} (sync)"
-                    )
+                ) -> Union[ReturnType, List[ReturnType], Iterable[ReturnType], Any]:
+                    logger.info(f"Calling LLM-powered function: {func.__name__} (sync)")
                     # Note: Running async code from sync might have implications in some environments
                     # Consider using a dedicated async event loop manager if needed.
                     # For simplicity, using asyncio.run here.
@@ -3020,6 +2881,7 @@ def create_from_prompt(
     role_for_prompt: MessageRole = "user",
 ) -> LiteLLMStream: ...
 
+
 @overload
 def create_from_prompt(
     prompt: PromptType,
@@ -3030,6 +2892,7 @@ def create_from_prompt(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
 ) -> str: ...
+
 
 @overload
 def create_from_prompt(
@@ -3044,6 +2907,7 @@ def create_from_prompt(
     role_for_prompt: MessageRole = "user",
 ) -> List[str]: ...
 
+
 def create_from_prompt(
     prompt: PromptType,
     instructions: Optional[str] = None,
@@ -3055,7 +2919,7 @@ def create_from_prompt(
 ) -> Union[str, List[str], LiteLLMStream]:
     """
     Generate text from a prompt using an LLM.
-    
+
     Args:
         prompt: The prompt to send to the model. Can be a string, list of messages, or other supported format.
         instructions: Optional additional instructions to guide the model's response.
@@ -3064,14 +2928,14 @@ def create_from_prompt(
         stream: Whether to stream the response tokens as they're generated.
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
-    
+
     Returns:
         A string response, list of responses (if multiple models), or a streaming response object.
-    
+
     Examples:
         >>> create_from_prompt("Tell me a joke about programming")
         "Why do programmers prefer dark mode? Because light attracts bugs!"
-        
+
         >>> create_from_prompt(
         ...     prompt="Summarize this article",
         ...     instructions="Keep it under 100 words",
@@ -3101,6 +2965,7 @@ async def async_create_from_prompt(
     role_for_prompt: MessageRole = "user",
 ) -> LiteLLMStream: ...
 
+
 @overload
 def async_create_from_prompt(
     prompt: PromptType,
@@ -3111,6 +2976,7 @@ def async_create_from_prompt(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
 ) -> str: ...
+
 
 @overload
 def async_create_from_prompt(
@@ -3123,6 +2989,7 @@ def async_create_from_prompt(
     role_for_prompt: MessageRole = "user",
 ) -> List[str]: ...
 
+
 async def async_create_from_prompt(
     prompt: PromptType,
     instructions: Optional[str] = None,
@@ -3134,7 +3001,7 @@ async def async_create_from_prompt(
 ) -> Union[str, List[str], LiteLLMStream]:
     """
     Asynchronously generate text from a prompt using an LLM.
-    
+
     Args:
         prompt: The prompt to send to the model. Can be a string, list of messages, or other supported format.
         instructions: Optional additional instructions to guide the model's response.
@@ -3143,14 +3010,14 @@ async def async_create_from_prompt(
         stream: Whether to stream the response tokens as they're generated.
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
-    
+
     Returns:
         A string response, list of responses (if multiple models), or a streaming response object.
-    
+
     Examples:
         >>> await async_create_from_prompt("Tell me a joke about programming")
         "Why do programmers prefer dark mode? Because light attracts bugs!"
-        
+
         >>> await async_create_from_prompt(
         ...     prompt=[{"role": "user", "content": "What's the weather like today?"}],
         ...     model="openai/gpt-4o",
@@ -3185,6 +3052,7 @@ def create_from_schema(
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[StructuredReturnType]: ...  # Type of schema
 
+
 @overload
 def create_from_schema(
     schema: SchemaType,
@@ -3202,6 +3070,7 @@ def create_from_schema(
     mode: InstructorModeParam = "tool_call",
 ) -> StructuredReturnType: ...  # Type of schema
 
+
 @overload
 def create_from_schema(
     schema: SchemaType,
@@ -3213,13 +3082,12 @@ def create_from_schema(
     n: int = 1,  # n > 1
     name_override: Optional[str] = None,
     description_override: Optional[str] = None,
-    stream: Literal[
-        True
-    ] = True,  # stream of List[Schema] yields Schema
+    stream: Literal[True] = True,  # stream of List[Schema] yields Schema
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[StructuredReturnType]: ...
+
 
 @overload
 def create_from_schema(
@@ -3236,7 +3104,8 @@ def create_from_schema(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
-    ) -> List[StructuredReturnType]: ...
+) -> List[StructuredReturnType]: ...
+
 
 def create_from_schema(
     schema: SchemaType,
@@ -3259,7 +3128,7 @@ def create_from_schema(
 ]:
     """
     Generate structured data from a prompt using an LLM according to a Pydantic schema.
-    
+
     Args:
         schema: The Pydantic model class defining the structure of the expected output.
         prompt: Optional prompt to guide the model's response.
@@ -3274,10 +3143,10 @@ def create_from_schema(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A structured response matching the provided schema, a list of responses, or an iterable of responses.
-    
+
     Examples:
         >>> from pydantic import BaseModel
         >>> class Person(BaseModel):
@@ -3307,6 +3176,7 @@ def create_from_schema(
         mode=mode,
     )
 
+
 @overload
 async def async_create_from_schema(
     schema: SchemaType,
@@ -3323,6 +3193,7 @@ async def async_create_from_schema(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[StructuredReturnType]: ...
+
 
 @overload
 async def async_create_from_schema(
@@ -3341,6 +3212,7 @@ async def async_create_from_schema(
     mode: InstructorModeParam = "tool_call",
 ) -> StructuredReturnType: ...
 
+
 @overload
 async def async_create_from_schema(
     schema: SchemaType,
@@ -3358,6 +3230,7 @@ async def async_create_from_schema(
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[StructuredReturnType]: ...
 
+
 @overload
 async def async_create_from_schema(
     schema: SchemaType,
@@ -3374,6 +3247,7 @@ async def async_create_from_schema(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> List[StructuredReturnType]: ...
+
 
 async def async_create_from_schema(
     schema: SchemaType,
@@ -3396,7 +3270,7 @@ async def async_create_from_schema(
 ]:
     """
     Asynchronously generate structured data from a prompt using an LLM according to a Pydantic schema.
-    
+
     Args:
         schema: The Pydantic model class defining the structure of the expected output.
         prompt: Optional prompt to guide the model's response.
@@ -3411,10 +3285,10 @@ async def async_create_from_schema(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A structured response matching the provided schema, a list of responses, or an iterable of responses.
-    
+
     Examples:
         >>> from pydantic import BaseModel
         >>> class Person(BaseModel):
@@ -3459,7 +3333,7 @@ def create_from_function(
 ) -> Callable[..., Any]:
     """
     Create a decorator that transforms a function to use an LLM for its implementation.
-    
+
     Args:
         model: The model to use (e.g., "openai/gpt-4o-mini").
         model_params: Optional parameters to pass to the model (temperature, max_tokens, etc.).
@@ -3471,15 +3345,15 @@ def create_from_function(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A decorator function that transforms the decorated function to use an LLM.
-    
+
     Examples:
         >>> @create_from_function(model="openai/gpt-4o")
         ... def summarize_text(text: str, max_words: int = 100) -> str:
         ...     pass
-        >>> 
+        >>>
         >>> summary = summarize_text("Lorem ipsum dolor sit amet...", max_words=50)
     """
     return expose_method(Create.from_function)(
@@ -3510,9 +3384,8 @@ def create_from_options(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
-) -> Iterable[
-    BaseModel
-]: ...  # Returns Iterable of a model with 'selection' field
+) -> Iterable[BaseModel]: ...  # Returns Iterable of a model with 'selection' field
+
 
 @overload
 def create_from_options(
@@ -3530,6 +3403,7 @@ def create_from_options(
     mode: InstructorModeParam = "tool_call",
 ) -> BaseModel: ...  # Returns a model with 'selection' field
 
+
 @overload
 def create_from_options(
     options: OptionsType,
@@ -3544,9 +3418,8 @@ def create_from_options(
     existing_messages: Optional[List[Message]] = None,
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
-) -> Iterable[
-    BaseModel
-]: ...  # Iterable of models with 'selection' field
+) -> Iterable[BaseModel]: ...  # Iterable of models with 'selection' field
+
 
 @overload
 def create_from_options(
@@ -3564,6 +3437,7 @@ def create_from_options(
     mode: InstructorModeParam = "tool_call",
 ) -> List[BaseModel]: ...  # List of models with 'selection' field
 
+
 def create_from_options(
     options: OptionsType,
     prompt: Optional[PromptType] = None,
@@ -3580,7 +3454,7 @@ def create_from_options(
 ) -> Union[BaseModel, List[BaseModel], Iterable[BaseModel]]:
     """
     Generate a selection from a set of options using an LLM.
-    
+
     Args:
         options: A set of options for the model to choose from.
         prompt: Optional prompt to guide the model's selection.
@@ -3594,10 +3468,10 @@ def create_from_options(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A model containing the selected option, a list of selections, or an iterable of selections.
-    
+
     Examples:
         >>> options = {"red", "green", "blue", "yellow"}
         >>> create_from_options(
@@ -3622,6 +3496,7 @@ def create_from_options(
         mode=mode,
     )
 
+
 @overload
 async def async_create_from_options(
     options: OptionsType,
@@ -3637,6 +3512,7 @@ async def async_create_from_options(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[BaseModel]: ...
+
 
 @overload
 async def async_create_from_options(
@@ -3654,6 +3530,7 @@ async def async_create_from_options(
     mode: InstructorModeParam = "tool_call",
 ) -> BaseModel: ...
 
+
 @overload
 async def async_create_from_options(
     options: OptionsType,
@@ -3669,6 +3546,7 @@ async def async_create_from_options(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[BaseModel]: ...
+
 
 @overload
 async def async_create_from_options(
@@ -3686,6 +3564,7 @@ async def async_create_from_options(
     mode: InstructorModeParam = "tool_call",
 ) -> List[BaseModel]: ...
 
+
 async def async_create_from_options(
     options: OptionsType,
     prompt: Optional[PromptType] = None,
@@ -3702,7 +3581,7 @@ async def async_create_from_options(
 ) -> Union[BaseModel, List[BaseModel], Iterable[BaseModel]]:
     """
     Asynchronously generate a selection from a set of options using an LLM.
-    
+
     Args:
         options: A set of options for the model to choose from.
         prompt: Optional prompt to guide the model's selection.
@@ -3716,10 +3595,10 @@ async def async_create_from_options(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A model containing the selected option, a list of selections, or an iterable of selections.
-    
+
     Examples:
         >>> options = {"red", "green", "blue", "yellow"}
         >>> await async_create_from_options(
@@ -3762,6 +3641,7 @@ def create_from_attributes(
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[StructuredReturnType]: ...
 
+
 @overload
 def create_from_attributes(
     schema: SchemaType,
@@ -3778,6 +3658,7 @@ def create_from_attributes(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> List[StructuredReturnType]: ...
+
 
 def create_from_attributes(
     schema: SchemaType,
@@ -3796,7 +3677,7 @@ def create_from_attributes(
 ) -> Union[List[StructuredReturnType], Iterable[StructuredReturnType]]:
     """
     Generate structured data focusing on specific attributes using an LLM.
-    
+
     Args:
         schema: The Pydantic model class defining the structure of the expected output.
         attributes: List of field names or dictionary mapping field names to weights.
@@ -3811,10 +3692,10 @@ def create_from_attributes(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A list of structured responses or an iterable of structured responses.
-    
+
     Examples:
         >>> from pydantic import BaseModel
         >>> class Product(BaseModel):
@@ -3846,6 +3727,7 @@ def create_from_attributes(
         mode=mode,
     )
 
+
 @overload
 async def async_create_from_attributes(
     schema: SchemaType,
@@ -3862,6 +3744,7 @@ async def async_create_from_attributes(
     role_for_prompt: MessageRole = "user",
     mode: InstructorModeParam = "tool_call",
 ) -> Iterable[StructuredReturnType]: ...
+
 
 @overload
 async def async_create_from_attributes(
@@ -3880,6 +3763,7 @@ async def async_create_from_attributes(
     mode: InstructorModeParam = "tool_call",
 ) -> List[StructuredReturnType]: ...
 
+
 async def async_create_from_attributes(
     schema: SchemaType,
     attributes: AttributeType,
@@ -3897,7 +3781,7 @@ async def async_create_from_attributes(
 ) -> Union[List[StructuredReturnType], Iterable[StructuredReturnType]]:
     """
     Asynchronously generate structured data focusing on specific attributes using an LLM.
-    
+
     Args:
         schema: The Pydantic model class defining the structure of the expected output.
         attributes: List of field names or dictionary mapping field names to weights.
@@ -3912,10 +3796,10 @@ async def async_create_from_attributes(
         existing_messages: Optional list of previous messages for context.
         role_for_prompt: The role to assign to the prompt message (usually "user").
         mode: The instructor mode to use for structured output generation.
-    
+
     Returns:
         A list of structured responses or an iterable of structured responses.
-    
+
     Examples:
         >>> from pydantic import BaseModel
         >>> class Product(BaseModel):
@@ -3946,6 +3830,7 @@ async def async_create_from_attributes(
         role_for_prompt=role_for_prompt,
         mode=mode,
     )
+
 
 __all__ = [
     "Create",

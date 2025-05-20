@@ -18,6 +18,8 @@ _setup_logging()
 
 
 if TYPE_CHECKING:
+    # AGENTS!
+
     from .create import (
         create_from_attributes,
         create_from_function,
@@ -60,7 +62,7 @@ if TYPE_CHECKING:
         convert_to_selection_model,
         convert_to_tool_definition,
         convert_to_tool_definitions,
-        convert_completion_to_tool_calls
+        convert_completion_to_tool_calls,
     )
 
     from .utils.formatting import (
@@ -207,7 +209,10 @@ IMPORT_MAP: Dict[str, Tuple[str, str]] = {
     "is_tool": (".utils.identification", "is_tool"),
     "has_system_prompt": (".utils.identification", "has_system_prompt"),
     "has_tool_call": (".utils.identification", "has_tool_call"),
-    "has_specific_tool_call": (".utils.identification", "has_specific_tool_call"),
+    "has_specific_tool_call": (
+        ".utils.identification",
+        "has_specific_tool_call",
+    ),
     # UTILS - CONVERTERS
     "convert_completion_to_pydantic_model": (
         ".utils.converters",
