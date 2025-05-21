@@ -4,7 +4,7 @@
 # ------------------------------------------------------------------------
 
 name = "prompted"
-version = "0.0.12"
+version = "0.0.13"
 
 description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
 authors = [
@@ -18,20 +18,15 @@ requires-python = ">=3.10"
 
 dependencies = [
     "cachetools>=5.5.1",
-    "docstring-parser>=0.16",
-    "pydantic>=2.10.6",
-    "rich>=13.9.4",
     "typing-inspect>=0.9.0",
+    "instructor>=1.8.2",
+    "litellm>=1.70.2",
 ]
 
 # ------------------------------------------------------------------------
 # Optional Dependencies (Extras) - For the PUBLISHED PACKAGE
 # ------------------------------------------------------------------------
 [project.optional-dependencies]
-create = [
-    "litellm>=1.61.3",
-    "instructor>=1.8.2",
-]
 mcp = [
     "mcp>=1.9.0",
 ]
@@ -41,15 +36,12 @@ a2a = [
 all = [
     "mcp>=1.9.0",
     "fasta2a",
-    "litellm>=1.61.3",
-    "instructor>=1.8.2",
 ]
 samples = [
     "ipython",
     "ipykernel",
     "typer",
 ]
-
 
 [dependency-groups]
 dev = [
@@ -67,17 +59,13 @@ dev = [
     "ipython",
     # openai is used for testing
     "openai>=1.52.0,<2.0.0",
-    "litellm",
-    "instructor[litellm]>=1.8.2",
     "mcp>=1.9.0",
     "fasta2a",
 ]
 
-
 # ------------------------------------------------------------------------
 # Build System & Tools (Hatch specific)
 # ------------------------------------------------------------------------
-
 
 [build-system]
 requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
@@ -94,11 +82,6 @@ bump = true
 [tool.hatch.build.targets.wheel]
 packages = ["prompted"]
 
-
-# == addition for zed IDE's (could be removed in future) ==
-# this is used to tell zed what venv to use for the python interpreter
-# assumes venv is at the root of the project
-# this is purely for dev
 [tool.pyright]
 venvPath = "."
 venv = ".venv"
@@ -109,15 +92,6 @@ members = [
     "samples/recipe_recommender",
 ]
 
-
 # exclude docs/ dir
 [tool.hatch.build]
 exclude = ["docs/"]
-
-
-# ------------------------------------------------------------------------
-# RUFF
-# ------------------------------------------------------------------------
-
-
-
