@@ -39,10 +39,10 @@ class Subscriptable(BaseModel):
         # Check if the field is set or has a default value
         if key in self.model_fields_set:
             return True
-        if key in self.model_fields and self.model_fields[key].default is not None:
+        if key in self.__class__.model_fields and self.__class__.model_fields[key].default is not None:
             return True
         # For aliased fields, check if the alias is present
-        for field_name, field_info in self.model_fields.items():
+        for field_name, field_info in self.__class__.model_fields.items():
             if field_info.alias == key:
                 if field_name in self.model_fields_set:
                     return True
@@ -57,7 +57,7 @@ class Subscriptable(BaseModel):
         if key in self:
             return self[key]
         # Attempt to get by alias if direct key fails
-        for field_name, field_info in self.model_fields.items():
+        for field_name, field_info in self.__class__.model_fields.items():
             if field_info.alias == key and field_name in self:
                 return getattr(self, field_name)
         return default
