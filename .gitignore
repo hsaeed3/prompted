@@ -1,6 +1,7 @@
 .ruff_cache/
 .cursorrules
 .dev/
+.concepts/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
