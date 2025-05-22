@@ -1,0 +1,3 @@
+"""
+prompted.types
+"""
