@@ -5,37 +5,18 @@ prompted._lib.service
 import logging
 from pathlib import Path
 from datetime import datetime
-from typing import (
-    Any,
-    Dict,
-    List,
-    Generic,
-    Literal,
-    Optional,
-    TypeVar,
-    Type,
-    Union
-)
+from typing import Any, Dict, List, Generic, Literal, Optional, TypeVar, Type, Union
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pydantic import BaseModel
-from sqlmodel import (
-    Field,
-    SQLModel,
-    Session,
-    select,
-    create_engine
-)
+from sqlmodel import Field, SQLModel, Session, select, create_engine
 
 
 logger = logging.getLogger(__name__)
 
 
-ServiceSchemaType = TypeVar(
-    "ServiceSchemaType",
-    bound=SQLModel | BaseModel | Any
-)
+ServiceSchemaType = TypeVar("ServiceSchemaType", bound=SQLModel | BaseModel | Any)
 
 
 class Service(ABC, Generic[ServiceSchemaType]):
@@ -48,8 +29,8 @@ class Service(ABC, Generic[ServiceSchemaType]):
 
     def __init__(
         self,
-        location : Literal["memory", "persistent"] = "memory",
-        url : Optional[Path | str] = None,
+        location: Literal["memory", "persistent"] = "memory",
+        url: Optional[Path | str] = None,
     ):
         """
         Initializes the base Service class.
@@ -63,22 +44,19 @@ class Service(ABC, Generic[ServiceSchemaType]):
         self.location = location
 
         # TODO:
-        # implement better split between 
+        # implement better split between
         # this logic
-        self._in_memory_data : Dict[str, Dict[str, Any]] = {}
+        self._in_memory_data: Dict[str, Dict[str, Any]] = {}
         self._engine = None
 
         if self.location == "persistent":
             if not url:
-                raise ValueError(
-                    "`url` must be provided when initializing a "
-                    "persistent service."
-                )
+                raise ValueError("`url` must be provided when initializing a persistent service.")
             self._initialize_persistent_service(url)
-            
+
     def _initialize_persistent_service(
         self,
-        url : Path | str,
+        url: Path | str,
     ):
         """
         Initializes the persistent service.
@@ -86,15 +64,10 @@ class Service(ABC, Generic[ServiceSchemaType]):
         try:
             self._engine = create_engine(url)
 
-            SQLModel.metadata.create_all(
-                self._engine
-            )
+            SQLModel.metadata.create_all(self._engine)
         except Exception as e:
-            raise ValueError(
-                "Failed to initialize the persistent service. "
-                f"Error: {e}"
-            ) from e
-        
+            raise ValueError(f"Failed to initialize the persistent service. Error: {e}") from e
+
     def _get_session(self) -> Session:
         """
         Provides a SQLModel session for persistent operations.
@@ -103,7 +76,7 @@ class Service(ABC, Generic[ServiceSchemaType]):
         if not self._engine:
             raise RuntimeError("Database engine not initialized. Service is not in persistent mode or setup failed.")
         return Session(self._engine)
-    
+
     @abstractmethod
     def _add_item_persistent(self, user_id: str, session_id: str, item: ServiceSchemaType):
         """
@@ -135,7 +108,7 @@ class Service(ABC, Generic[ServiceSchemaType]):
         To be implemented by subclasses.
         """
         pass
-        
+
     # Public methods that handle mode switching and call abstract methods
     def add(self, user_id: str, session_id: str, item: ServiceSchemaType):
         """
@@ -148,10 +121,10 @@ class Service(ABC, Generic[ServiceSchemaType]):
                 # Initialize the session-specific storage.
                 # For history, this would be a list. For other services, it might be a dict.
                 # The subclass would typically manage the structure within this 'Any'.
-                self._in_memory_data[user_id][session_id] = [] # Default to list, subclass can override behavior
+                self._in_memory_data[user_id][session_id] = []  # Default to list, subclass can override behavior
             self._in_memory_data[user_id][session_id].append(item)
             logger.debug(f"Added item for user '{user_id}', session '{session_id}' (in-memory).")
-        else: # persistent
+        else:  # persistent
             self._add_item_persistent(user_id, session_id, item)
 
     def get(self, user_id: str, session_id: str) -> List[Any]:
@@ -161,7 +134,7 @@ class Service(ABC, Generic[ServiceSchemaType]):
         """
         if self.location == "memory":
             return self._in_memory_data.get(user_id, {}).get(session_id, []).copy()
-        else: # persistent
+        else:  # persistent
             return self._get_items_persistent(user_id, session_id)
 
     def clear(self, user_id: str, session_id: str):
@@ -172,7 +145,7 @@ class Service(ABC, Generic[ServiceSchemaType]):
             if user_id in self._in_memory_data and session_id in self._in_memory_data[user_id]:
                 del self._in_memory_data[user_id][session_id]
                 logger.debug(f"Cleared items for user '{user_id}', session '{session_id}' (in-memory).")
-        else: # persistent
+        else:  # persistent
             self._clear_items_persistent(user_id, session_id)
 
     def clear_user_data(self, user_id: str):
@@ -183,11 +156,8 @@ class Service(ABC, Generic[ServiceSchemaType]):
             if user_id in self._in_memory_data:
                 del self._in_memory_data[user_id]
                 logger.debug(f"Cleared all data for user '{user_id}' (in-memory).")
-        else: # persistent
+        else:  # persistent
             self._clear_user_data_persistent(user_id)
 
 
-__all__ = [
-    "Service",
-    "ServiceSchemaType"
-]
+__all__ = ["Service", "ServiceSchemaType"]

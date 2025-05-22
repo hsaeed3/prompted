@@ -95,29 +95,21 @@ def make_hashable(obj: Any) -> str:
 
         if isinstance(obj, (tuple, list)):
             # Recursively handle sequences
-            return hashlib.sha256(
-                ",".join(make_hashable(x) for x in obj).encode()
-            ).hexdigest()
+            return hashlib.sha256(",".join(make_hashable(x) for x in obj).encode()).hexdigest()
 
         if isinstance(obj, dict):
             # Sort dict items for consistent hashing
             return hashlib.sha256(
-                ",".join(
-                    f"{k}:{make_hashable(v)}" for k, v in sorted(obj.items())
-                ).encode()
+                ",".join(f"{k}:{make_hashable(v)}" for k, v in sorted(obj.items())).encode()
             ).hexdigest()
 
         if isinstance(obj, type):
             # Handle types (classes)
-            return hashlib.sha256(
-                f"{obj.__module__}.{obj.__name__}".encode()
-            ).hexdigest()
+            return hashlib.sha256(f"{obj.__module__}.{obj.__name__}".encode()).hexdigest()
 
         if callable(obj):
             # Handle functions
-            return hashlib.sha256(
-                f"{obj.__module__}.{obj.__name__}".encode()
-            ).hexdigest()
+            return hashlib.sha256(f"{obj.__module__}.{obj.__name__}".encode()).hexdigest()
 
         if hasattr(obj, "__dict__"):
             # Use the __dict__ for instance attributes if available
