@@ -47,6 +47,11 @@ def setup_logging():
     return logger
 
 
+# instance itself isnt used directly, but is used to set the level of the logger
+logger = setup_logging()
+"""Singleton logger instance for use within the `prompted` package."""
+
+
 def verbosity(
     level: Literal["debug", "info", "warning", "error", "critical"],
 ) -> None:
