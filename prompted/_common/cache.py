@@ -109,15 +109,11 @@ def make_hashable(obj: Any) -> str:
 
         if isinstance(obj, type):
             # Handle types (classes)
-            return hashlib.sha256(
-                f"{obj.__module__}.{obj.__name__}".encode()
-            ).hexdigest()
+            return hashlib.sha256(f"{obj.__module__}.{obj.__name__}".encode()).hexdigest()
 
         if callable(obj):
             # Handle functions
-            return hashlib.sha256(
-                f"{obj.__module__}.{obj.__name__}".encode()
-            ).hexdigest()
+            return hashlib.sha256(f"{obj.__module__}.{obj.__name__}".encode()).hexdigest()
 
         if hasattr(obj, "__dict__"):
             # Use the __dict__ for instance attributes if available

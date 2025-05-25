@@ -47,7 +47,7 @@ build-backend = "hatchling.build"
 # -----------------------------------------------------------------------------
 
 [tool.ruff]
-line-length = 120
+line-length = 90
 output-format = "grouped"
 target-version = "py37"
 
