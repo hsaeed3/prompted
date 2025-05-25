@@ -1,5 +1,5 @@
 """
-💬 prompted.common.cache
+💬 prompted._common.cache
 
 Contains resources that are used within `prompted` for caching
 purposes.

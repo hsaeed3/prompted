@@ -1,5 +1,5 @@
 """
-💬 prompted.common.logger
+💬 prompted._common.logger
 """
 
 import logging
