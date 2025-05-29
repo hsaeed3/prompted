@@ -1,55 +1,22 @@
 [project]
-# ------------------------------------------------------------------------
-# Base Metadata
-# ------------------------------------------------------------------------
-
 name = "prompted"
-version = "0.0.12"
-
-description = "Simple types & utilities built for the OpenAI Chat Completions API specification."
-authors = [
-    { name = "Hammad Saeed", email = "hvmmad@gmail.com" }
-]
-
-readme = "README.md"
-license = { file = "LICENSE" }
-
+version = "0.0.13"
+description = "🌱 prompted - Tiny & Rapid LLM/Agentic Prototyping"
+authors = [{ name = "Hammad Saeed", email = "hvmmad@gmail.com" }]
 requires-python = ">=3.10"
-
 dependencies = [
-    "cachetools>=5.5.1",
     "docstring-parser>=0.16",
-    "pydantic>=2.10.6",
-    "rich>=13.9.4",
+    "sqlmodel>=0.0.24",
     "typing-inspect>=0.9.0",
+    "mcp>=1.9.0",
+    "pydantic>=2.11.4",
+    "instructor>=1.8.2",
+    "burr>=0.40.2",
 ]
 
-# ------------------------------------------------------------------------
-# Optional Dependencies (Extras) - For the PUBLISHED PACKAGE
-# ------------------------------------------------------------------------
 [project.optional-dependencies]
-create = [
-    "litellm>=1.61.3",
-    "instructor>=1.8.2",
-]
-mcp = [
-    "mcp>=1.9.0",
-]
-a2a = [
-    "fasta2a"
-]
-all = [
-    "mcp>=1.9.0",
-    "fasta2a",
-    "litellm>=1.61.3",
-    "instructor>=1.8.2",
-]
-samples = [
-    "ipython",
-    "ipykernel",
-    "typer",
-]
-
+create = ["litellm>=1.70.2", "instructor>=1.8.2"]
+serve = ["uvicorn>=0.34.2", "fastapi>=0.115.12"]
 
 [dependency-groups]
 dev = [
@@ -57,67 +24,78 @@ dev = [
     # i love astral.sh
     "ruff",
     "uv",
-    "rich", 
+    "rich",
     "twine",
-    # tests
     "pytest",
     "pytest-asyncio",
-    # jupyter,
     "ipykernel",
     "ipython",
-    # openai is used for testing
-    "openai>=1.52.0,<2.0.0",
-    "litellm",
-    "instructor[litellm]>=1.8.2",
     "mcp>=1.9.0",
     "fasta2a",
+    "mkdocs-material",
+    "mkdocs-material-extensions>=1.3.1",
+    "mkdocstrings[python]>=0.25.0",
+    "mkdocs-jupyter",
 ]
-
-
-# ------------------------------------------------------------------------
-# Build System & Tools (Hatch specific)
-# ------------------------------------------------------------------------
-
 
 [build-system]
-requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.version]
-source = "uv-dynamic-versioning"
+# -----------------------------------------------------------------------------
+# Ruff Rules
+# -----------------------------------------------------------------------------
 
-[tool.uv-dynamic-versioning]
-vcs = "git"
-style = "pep440"
-bump = true
+[tool.ruff]
+line-length = 90
+output-format = "grouped"
+target-version = "py37"
 
-[tool.hatch.build.targets.wheel]
-packages = ["prompted"]
+[tool.ruff.format]
+docstring-code-format = true
 
-
-# == addition for zed IDE's (could be removed in future) ==
-# this is used to tell zed what venv to use for the python interpreter
-# assumes venv is at the root of the project
-# this is purely for dev
-[tool.pyright]
-venvPath = "."
-venv = ".venv"
-
-[tool.uv.workspace]
-members = [
-    "samples/trip_planner",
-    "samples/recipe_recommender",
+[tool.ruff.lint]
+select = [
+    # isort
+    "I",
+    # bugbear rules
+    "B",
+    # remove unused imports
+    "F401",
+    # bare except statements
+    "E722",
+    # unused arguments
+    "ARG",
+    # print statements
+    "T201",
+    "T203",
+    # misuse of typing.TYPE_CHECKING
+    "TC004",
+    # import rules
+    "TID251",
+]
+ignore = [
+    # mutable defaults
+    "B006",
+]
+unfixable = [
+    # disable auto fix for print statements
+    "T201",
+    "T203",
 ]
 
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"functools.lru_cache".msg = "This function does not retain type information for the wrapped function's arguments; The `lru_cache` function from `_utils` should be used instead"
 
-# exclude docs/ dir
-[tool.hatch.build]
-exclude = ["docs/"]
+[tool.ruff.lint.isort]
+length-sort = true
+length-sort-straight = true
+combine-as-imports = true
+extra-standard-library = ["typing_extensions"]
+known-first-party = ["openai", "tests"]
 
-
-# ------------------------------------------------------------------------
-# RUFF
-# ------------------------------------------------------------------------
-
-
-
+[tool.ruff.lint.per-file-ignores]
+"bin/**.py" = ["T201", "T203"]
+"scripts/**.py" = ["T201", "T203"]
+"tests/**.py" = ["T201", "T203"]
+"examples/**.py" = ["T201", "T203"]
