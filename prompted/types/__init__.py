@@ -1,3 +1,0 @@
-"""
-prompted.types
-"""
