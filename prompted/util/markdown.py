@@ -1,5 +1,5 @@
 """
-prompted.resources.formatting.markdown
+prompted.resources.markdown
 
 Contains various resources for converting different
 filetypes and data types into markdown strings.
@@ -21,8 +21,8 @@ from typing_extensions import TypedDict
 import typing_inspect as ti
 from pydantic import BaseModel
 
-from ..._cache import cached, make_hashable
-from ...logger import _get_logger
+from .._cache import cached, make_hashable
+from ..logger import _get_logger
 
 logger = _get_logger(__name__)
 
@@ -46,26 +46,27 @@ class MarkdownSettings(TypedDict):
     """
     Settings configuration for markdown formatting.
     """
-    indent : int = 0
-    split : bool = False
-    exclude : Optional[List[str]] = None
-    as_code_block : bool = False
-    as_natural_language : bool = False
-    show_schema : bool = False
-    show_types : bool = True
-    show_field_descriptions : bool = True
-    show_values : bool = True
-    show_defaults : bool = True
-    show_title : bool = True
-    show_bullets : bool = True
-    show_docs : bool = True
-    bullet_style : str = "-"
-    title_level : Literal["h1", "h2", "h3", "bold"] = "h1"
-    code_block_language : str | None = None
-    show_header : bool = True
-    override_title : str | None = None
-    override_description : str | None = None
-    
+
+    indent: int = 0
+    split: bool = False
+    exclude: Optional[List[str]] = None
+    as_code_block: bool = False
+    as_natural_language: bool = False
+    show_schema: bool = False
+    show_types: bool = True
+    show_field_descriptions: bool = True
+    show_values: bool = True
+    show_defaults: bool = True
+    show_title: bool = True
+    show_bullets: bool = True
+    show_docs: bool = True
+    bullet_style: str = "-"
+    title_level: Literal["h1", "h2", "h3", "bold"] = "h1"
+    code_block_language: str | None = None
+    show_header: bool = True
+    override_title: str | None = None
+    override_description: str | None = None
+
 
 # ------------------------------------------------------------------------
 # Helper Functions (ported from old formatting.py)
@@ -115,11 +116,11 @@ def _get_dataclass_field_description(field: Any) -> Optional[str]:
             desc = field.metadata.get("description")
             if desc:
                 return desc
-        
+
         # Check field docstring if available
         if hasattr(field, "__doc__") and field.__doc__:
             return field.__doc__.strip()
-        
+
         return None
     except Exception:
         return None
@@ -183,7 +184,9 @@ def _format_docstring(doc_dict: dict, prefix: str = "") -> str:
             parts.append(f"{prefix}_Parameters:_")
             for param in doc.params:
                 type_str = f": {param.type_name}" if param.type_name else ""
-                parts.append(f"{prefix}  - `{param.arg_name}{type_str}` - {param.description}")
+                parts.append(
+                    f"{prefix}  - `{param.arg_name}{type_str}` - {param.description}"
+                )
         if doc.returns:
             parts.append(f"{prefix}_Returns:_ {doc.returns.description}")
         if doc.raises:
@@ -313,22 +316,21 @@ def _parse_docstring(obj: Any, use_getdoc: bool = True) -> Optional[dict]:
 
 @cached(lambda target, settings=None: make_hashable((target, settings)))
 def convert_function_to_markdown(
-    target : Callable,
-    settings : MarkdownSettings | None = None
+    target: Callable, settings: MarkdownSettings | None = None
 ) -> str:
     """
     Converts a function into a markdown string.
     """
     if settings is None:
         settings = {}
-    
+
     func_name = target.__name__
     prefix = "  " * settings.get("indent", 0)
-    
+
     # Create title based on title_level
     title_level = settings.get("title_level", "h1")
     title = settings.get("override_title") or func_name
-    
+
     if title_level == "h1":
         title_md = f"# {title}"
     elif title_level == "h2":
@@ -339,52 +341,55 @@ def convert_function_to_markdown(
         title_md = f"**{title}**"
     else:
         title_md = f"# {title}"
-    
+
     parts = []
-    
+
     if settings.get("show_title", True):
         parts.append(f"{prefix}{title_md}")
-    
+
     if settings.get("show_docs", True):
         doc_dict = _parse_docstring(target, use_getdoc=True)
         if doc_dict:
             doc_md = _format_docstring(doc_dict, prefix + "  ")
             if doc_md:
                 parts.append(doc_md)
-    
+
     result = "\n".join(parts)
-    
+
     if settings.get("as_code_block", False):
         lang = settings.get("code_block_language", "python")
         return f"```{lang}\n{result}\n```"
-    
+
     return result
 
 
 @cached(lambda target, settings=None: make_hashable((target, settings)))
 def convert_dataclass_to_markdown(
-    target : Any,
-    settings : MarkdownSettings | None = None
+    target: Any, settings: MarkdownSettings | None = None
 ) -> str:
     """
     Converts a dataclass into a markdown string.
     """
     if settings is None:
         settings = {}
-    
+
     if not is_dataclass(target):
         raise ValueError("Target must be a dataclass")
-    
+
     is_class = isinstance(target, type)
     class_name = target.__name__ if is_class else target.__class__.__name__
-    
+
     prefix = "  " * settings.get("indent", 0)
-    bullet = f"{settings.get('bullet_style', '-')} " if settings.get("show_bullets", True) else ""
-    
+    bullet = (
+        f"{settings.get('bullet_style', '-')} "
+        if settings.get("show_bullets", True)
+        else ""
+    )
+
     # Create title
     title_level = settings.get("title_level", "h1")
     title = settings.get("override_title") or class_name
-    
+
     if title_level == "h1":
         title_md = f"# {title}"
     elif title_level == "h2":
@@ -395,12 +400,12 @@ def convert_dataclass_to_markdown(
         title_md = f"**{title}**"
     else:
         title_md = f"# {title}"
-    
+
     parts = []
-    
+
     if settings.get("show_title", True):
         parts.append(f"{prefix}{title_md}")
-    
+
     # Add docstring if enabled
     if settings.get("show_docs", True) and settings.get("show_header", True):
         doc_obj = target if is_class else target.__class__
@@ -411,27 +416,31 @@ def convert_dataclass_to_markdown(
             doc_md = _format_docstring(doc_dict_filtered, prefix + "  ")
             if doc_md:
                 parts.append(doc_md)
-    
+
     # Handle fields
     fields_list = dataclass_fields(target)
     exclude = settings.get("exclude", []) or []
-    
+
     if settings.get("as_natural_language", False):
         # Natural language format
         if not is_class:
-            parts.append(f"{prefix}{class_name} is currently set with the following values:")
+            parts.append(
+                f"{prefix}{class_name} is currently set with the following values:"
+            )
             for field in fields_list:
                 if field.name in exclude:
                     continue
                 value = getattr(target, field.name)
                 type_name = convert_type_to_markdown(field.type).replace("_", " ").lower()
-                parts.append(f"{prefix}{bullet}{field.name.title()} (A {type_name}) is defined as {repr(value)}")
+                parts.append(
+                    f"{prefix}{bullet}{field.name.title()} (A {type_name}) is defined as {repr(value)}"
+                )
     else:
         # Standard format
         for field in fields_list:
             if field.name in exclude:
                 continue
-            
+
             if settings.get("split", False):
                 # Create subheading for each field
                 field_title_level = settings.get("title_level", "h1")
@@ -443,90 +452,104 @@ def convert_dataclass_to_markdown(
                     field_title = f"#### {field.name}"
                 else:
                     field_title = f"### {field.name}"
-                
+
                 parts.append(f"{prefix}{field_title}")
-                
+
                 # Add type information
                 if settings.get("show_types", True):
                     type_name = convert_type_to_markdown(field.type)
                     parts.append(f"{prefix}**Type:** `{type_name}`")
-                
+
                 # Add field description if available and enabled
                 if settings.get("show_field_descriptions", True):
                     field_desc = _get_dataclass_field_description(field)
                     if field_desc:
                         parts.append(f"{prefix}**Description:** {field_desc}")
-                
+
                 # Add value
                 if settings.get("show_values", True) and not is_class:
                     value = getattr(target, field.name)
                     parts.append(f"{prefix}**Value:** `{repr(value)}`")
-                elif settings.get("show_defaults", True) and hasattr(field, "default") and field.default is not dataclass_fields:
+                elif (
+                    settings.get("show_defaults", True)
+                    and hasattr(field, "default")
+                    and field.default is not dataclass_fields
+                ):
                     if field.default_factory is not dataclass_fields:
                         parts.append(f"{prefix}**Default:** `{field.default_factory()}`")
                     else:
                         parts.append(f"{prefix}**Default:** `{repr(field.default)}`")
-                
+
                 parts.append("")  # Add spacing between fields
             else:
                 # Standard bullet format
                 field_parts = [f"{prefix}{bullet}{field.name}"]
-                
+
                 if settings.get("show_types", True):
                     type_name = convert_type_to_markdown(field.type)
                     field_parts.append(f" : {type_name}")
-                
+
                 # Show values for instances (not classes) when show_values is True
                 if settings.get("show_values", True) and not is_class:
                     value = getattr(target, field.name)
                     field_parts.append(f" = {repr(value)}")
-                elif settings.get("show_defaults", True) and hasattr(field, "default") and field.default is not dataclass_fields:
+                elif (
+                    settings.get("show_defaults", True)
+                    and hasattr(field, "default")
+                    and field.default is not dataclass_fields
+                ):
                     if field.default_factory is not dataclass_fields:
                         field_parts.append(f" = {field.default_factory()}")
                     else:
                         field_parts.append(f" = {repr(field.default)}")
-                
+
                 # Add field description as comment if available and enabled
                 if settings.get("show_field_descriptions", True):
                     field_desc = _get_dataclass_field_description(field)
                     if field_desc:
                         field_parts.append(f"  # {field_desc}")
-                
+
                 parts.append("".join(field_parts))
-    
+
     result = "\n".join(parts)
-    
+
     if settings.get("as_code_block", False):
         lang = settings.get("code_block_language", "python")
         return f"```{lang}\n{result}\n```"
-    
+
     return result
 
 
 @cached(lambda target, settings=None: make_hashable((target, settings)))
 def convert_pydantic_model_to_markdown(
-    target : BaseModel,
-    settings : MarkdownSettings | None = None
+    target: BaseModel, settings: MarkdownSettings | None = None
 ) -> str:
     """
     Converts a Pydantic model into a markdown string.
     """
     if settings is None:
         settings = {}
-    
-    if not (isinstance(target, BaseModel) or (isinstance(target, type) and issubclass(target, BaseModel))):
+
+    if not (
+        isinstance(target, BaseModel)
+        or (isinstance(target, type) and issubclass(target, BaseModel))
+    ):
         raise ValueError("Target must be a Pydantic model")
-    
+
     is_class = isinstance(target, type)
     model_name = target.__name__ if is_class else target.__class__.__name__
-    
+
     prefix = "  " * settings.get("indent", 0)
-    bullet = f"{settings.get('bullet_style', '-')} " if settings.get("show_bullets", True) else ""
-    
+    bullet = (
+        f"{settings.get('bullet_style', '-')} "
+        if settings.get("show_bullets", True)
+        else ""
+    )
+
     # Create title
     title_level = settings.get("title_level", "h1")
     title = settings.get("override_title") or model_name
-    
+
     if title_level == "h1":
         title_md = f"# {title}"
     elif title_level == "h2":
@@ -537,12 +560,12 @@ def convert_pydantic_model_to_markdown(
         title_md = f"**{title}**"
     else:
         title_md = f"# {title}"
-    
+
     parts = []
-    
+
     if settings.get("show_title", True):
         parts.append(f"{prefix}{title_md}")
-    
+
     # Add docstring if enabled
     if settings.get("show_docs", True) and settings.get("show_header", True):
         doc_obj = target if is_class else target.__class__
@@ -553,27 +576,37 @@ def convert_pydantic_model_to_markdown(
             doc_md = _format_docstring(doc_dict_filtered, prefix + "  ")
             if doc_md:
                 parts.append(doc_md)
-    
+
     # Handle fields
-    model_fields = target.__class__.model_fields if is_class else target.__class__.model_fields
+    model_fields = (
+        target.__class__.model_fields if is_class else target.__class__.model_fields
+    )
     exclude = settings.get("exclude", []) or []
-    
+
     if settings.get("as_natural_language", False):
         # Natural language format
         if not is_class:
-            parts.append(f"{prefix}{model_name} is currently set with the following values:")
+            parts.append(
+                f"{prefix}{model_name} is currently set with the following values:"
+            )
             for field_name, field_info in model_fields.items():
                 if field_name in exclude:
                     continue
                 value = getattr(target, field_name)
-                type_name = convert_type_to_markdown(field_info.annotation).replace("_", " ").lower()
-                parts.append(f"{prefix}{bullet}{field_name.title()} (A {type_name}) is defined as {repr(value)}")
+                type_name = (
+                    convert_type_to_markdown(field_info.annotation)
+                    .replace("_", " ")
+                    .lower()
+                )
+                parts.append(
+                    f"{prefix}{bullet}{field_name.title()} (A {type_name}) is defined as {repr(value)}"
+                )
     else:
         # Standard format
         for field_name, field_info in model_fields.items():
             if field_name in exclude:
                 continue
-            
+
             if settings.get("split", False):
                 # Create subheading for each field
                 field_title_level = settings.get("title_level", "h1")
@@ -585,92 +618,113 @@ def convert_pydantic_model_to_markdown(
                     field_title = f"#### {field_name}"
                 else:
                     field_title = f"### {field_name}"
-                
+
                 parts.append(f"{prefix}{field_title}")
-                
+
                 # Add type information
                 if settings.get("show_types", True):
                     type_name = convert_type_to_markdown(field_info.annotation)
                     parts.append(f"{prefix}**Type:** `{type_name}`")
-                
+
                 # Add field description if available and enabled
                 if settings.get("show_field_descriptions", True):
                     field_desc = _get_field_description(field_info)
                     if field_desc:
                         parts.append(f"{prefix}**Description:** {field_desc}")
-                
+
                 # Add value
                 if settings.get("show_values", True) and not is_class:
                     value = getattr(target, field_name)
                     parts.append(f"{prefix}**Value:** `{repr(value)}`")
-                elif settings.get("show_defaults", True) and field_info.default is not None:
+                elif (
+                    settings.get("show_defaults", True) and field_info.default is not None
+                ):
                     parts.append(f"{prefix}**Default:** `{repr(field_info.default)}`")
-                elif settings.get("show_defaults", True) and hasattr(field_info, "default_factory") and field_info.default_factory is not None:
+                elif (
+                    settings.get("show_defaults", True)
+                    and hasattr(field_info, "default_factory")
+                    and field_info.default_factory is not None
+                ):
                     parts.append(f"{prefix}**Default:** `{field_info.default_factory()}`")
-                
+
                 parts.append("")  # Add spacing between fields
             else:
                 # Standard bullet format
                 field_parts = [f"{prefix}{bullet}{field_name}"]
-                
+
                 if settings.get("show_types", True):
                     type_name = convert_type_to_markdown(field_info.annotation)
                     field_parts.append(f" : {type_name}")
-                
+
                 # Show values for instances (not classes) when show_values is True
                 if settings.get("show_values", True) and not is_class:
                     value = getattr(target, field_name)
                     field_parts.append(f" = {repr(value)}")
-                elif settings.get("show_defaults", True) and field_info.default is not None:
+                elif (
+                    settings.get("show_defaults", True) and field_info.default is not None
+                ):
                     field_parts.append(f" = {repr(field_info.default)}")
-                elif settings.get("show_defaults", True) and hasattr(field_info, "default_factory") and field_info.default_factory is not None:
+                elif (
+                    settings.get("show_defaults", True)
+                    and hasattr(field_info, "default_factory")
+                    and field_info.default_factory is not None
+                ):
                     field_parts.append(f" = {field_info.default_factory()}")
-                
+
                 # Add field description as comment if available and enabled
                 if settings.get("show_field_descriptions", True):
                     field_desc = _get_field_description(field_info)
                     if field_desc:
                         field_parts.append(f"  # {field_desc}")
-                
+
                 parts.append("".join(field_parts))
-    
+
     result = "\n".join(parts)
-    
+
     if settings.get("as_code_block", False):
         lang = settings.get("code_block_language", "python")
         return f"```{lang}\n{result}\n```"
-    
+
     return result
 
 
 def convert_object_to_markdown(
-    target : Any,
-    settings : MarkdownSettings | None = None
+    target: Any, settings: MarkdownSettings | None = None
 ) -> str:
     """
     Converts an object into a markdown string.
     """
     if settings is None:
         settings = {}
-    
+
     # Dispatch to appropriate converter based on object type
     if isinstance(target, Callable):
         return convert_function_to_markdown(target, settings)
-    elif isinstance(target, BaseModel) or (isinstance(target, type) and issubclass(target, BaseModel)):
+    elif isinstance(target, BaseModel) or (
+        isinstance(target, type) and issubclass(target, BaseModel)
+    ):
         return convert_pydantic_model_to_markdown(target, settings)
     elif is_dataclass(target):
         return convert_dataclass_to_markdown(target, settings)
     else:
         # Fallback for other objects
         prefix = "  " * settings.get("indent", 0)
-        bullet = f"{settings.get('bullet_style', '-')} " if settings.get("show_bullets", True) else ""
-        
-        obj_name = target.__class__.__name__ if hasattr(target, '__class__') else str(type(target).__name__)
-        
+        bullet = (
+            f"{settings.get('bullet_style', '-')} "
+            if settings.get("show_bullets", True)
+            else ""
+        )
+
+        obj_name = (
+            target.__class__.__name__
+            if hasattr(target, "__class__")
+            else str(type(target).__name__)
+        )
+
         # Create title
         title_level = settings.get("title_level", "h1")
         title = settings.get("override_title") or obj_name
-        
+
         if title_level == "h1":
             title_md = f"# {title}"
         elif title_level == "h2":
@@ -681,12 +735,12 @@ def convert_object_to_markdown(
             title_md = f"**{title}**"
         else:
             title_md = f"# {title}"
-        
+
         parts = []
-        
+
         if settings.get("show_title", True):
             parts.append(f"{prefix}{title_md}")
-        
+
         # Handle different object types
         if isinstance(target, (list, tuple, set)):
             if target:
@@ -702,43 +756,43 @@ def convert_object_to_markdown(
                 parts.append(f"{prefix}{bullet}Empty dictionary")
         else:
             # Generic object - try to get attributes
-            if hasattr(target, '__dict__'):
+            if hasattr(target, "__dict__"):
                 for attr_name, attr_value in target.__dict__.items():
-                    if not attr_name.startswith('_'):  # Skip private attributes
+                    if not attr_name.startswith("_"):  # Skip private attributes
                         parts.append(f"{prefix}{bullet}{attr_name}: {repr(attr_value)}")
             else:
                 parts.append(f"{prefix}{bullet}Value: {repr(target)}")
-        
+
         result = "\n".join(parts)
-        
+
         if settings.get("as_code_block", False):
             lang = settings.get("code_block_language", "text")
             return f"```{lang}\n{result}\n```"
-        
+
         return result
 
 
 def convert_to_markdown(
-    target : Any,
-    indent : int = 0,
-    split : bool = False,
-    exclude : Optional[List[str]] = None,
-    as_code_block : bool = False,
-    as_natural_language : bool = False,
-    show_schema : bool = False,
-    show_field_descriptions : bool = True,
-    show_types : bool = True,
-    show_values : bool = True,
-    show_defaults : bool = True,
-    show_title : bool = True,
-    show_bullets : bool = True,
-    show_docs : bool = True,
-    bullet_style : str = "-",
-    title_level : Literal["h1", "h2", "h3", "bold"] = "h1",
-    code_block_language : str | None = None,
-    show_header : bool = True,
-    override_title : str | None = None,
-    override_description : str | None = None,
+    target: Any,
+    indent: int = 0,
+    split: bool = False,
+    exclude: Optional[List[str]] = None,
+    as_code_block: bool = False,
+    as_natural_language: bool = False,
+    show_schema: bool = False,
+    show_field_descriptions: bool = True,
+    show_types: bool = True,
+    show_values: bool = True,
+    show_defaults: bool = True,
+    show_title: bool = True,
+    show_bullets: bool = True,
+    show_docs: bool = True,
+    bullet_style: str = "-",
+    title_level: Literal["h1", "h2", "h3", "bold"] = "h1",
+    code_block_language: str | None = None,
+    show_header: bool = True,
+    override_title: str | None = None,
+    override_description: str | None = None,
 ) -> str:
     """
     Converts a target object into a markdown string.
@@ -787,6 +841,5 @@ def convert_to_markdown(
         "override_title": override_title,
         "override_description": override_description,
     }
-    
-    return convert_object_to_markdown(target, settings)
 
+    return convert_object_to_markdown(target, settings)

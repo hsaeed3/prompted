@@ -25,15 +25,15 @@ class RichMarkupFilter(logging.Filter):
             record.msg = f"[white]{record.msg}[/white]"
         elif record.levelno >= logging.DEBUG:
             record.msg = f"[italic dim]{record.msg}[/italic dim]"
-        return True  
+        return True
 
 
 def _setup_logging() -> logging.Logger:
     logger = logging.getLogger("prompted")
 
     handler = RichHandler(
-        level=logging.WARNING,  
-        console=_console,  
+        level=logging.WARNING,
+        console=_console,
         rich_tracebacks=True,
         show_time=False,
         show_path=False,
@@ -50,10 +50,10 @@ def _setup_logging() -> logging.Logger:
     return logger
 
 
-def _get_logger(module : str | None = None) -> logging.Logger:
+def _get_logger(module: str | None = None) -> logging.Logger:
     if module is None:
         return _logger
-    return _logger.getChild(module) # type: ignore
+    return _logger.getChild(module)  # type: ignore
 
 
 def verbosity(

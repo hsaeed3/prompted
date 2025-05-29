@@ -43,12 +43,12 @@ Type variable for the cache.
 
 class TTLCache:
     """Simple TTL cache implementation using standard library."""
-    
+
     def __init__(self, maxsize: int = 1000, ttl: int = 3600):
         self.maxsize = maxsize
         self.ttl = ttl
         self._cache: Dict[str, Tuple[Any, float]] = {}
-    
+
     def __contains__(self, key: str) -> bool:
         if key in self._cache:
             _, timestamp = self._cache[key]
@@ -57,28 +57,29 @@ class TTLCache:
             else:
                 del self._cache[key]
         return False
-    
+
     def __getitem__(self, key: str) -> Any:
         if key in self:
             return self._cache[key][0]
         raise KeyError(key)
-    
+
     def __setitem__(self, key: str, value: Any) -> None:
         # Clean up expired entries if cache is full
         if len(self._cache) >= self.maxsize:
             current_time = time.time()
             expired_keys = [
-                k for k, (_, timestamp) in self._cache.items()
+                k
+                for k, (_, timestamp) in self._cache.items()
                 if current_time - timestamp > self.ttl
             ]
             for k in expired_keys:
                 del self._cache[k]
-            
+
             # If still full after cleanup, remove oldest entry
             if len(self._cache) >= self.maxsize:
                 oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k][1])
                 del self._cache[oldest_key]
-        
+
         self._cache[key] = (value, time.time())
 
 
@@ -151,15 +152,11 @@ def make_hashable(obj: Any) -> str:
 
         if isinstance(obj, type):
             # Handle types (classes)
-            return hashlib.sha256(
-                f"{obj.__module__}.{obj.__name__}".encode()
-            ).hexdigest()
+            return hashlib.sha256(f"{obj.__module__}.{obj.__name__}".encode()).hexdigest()
 
         if callable(obj):
             # Handle functions
-            return hashlib.sha256(
-                f"{obj.__module__}.{obj.__name__}".encode()
-            ).hexdigest()
+            return hashlib.sha256(f"{obj.__module__}.{obj.__name__}".encode()).hexdigest()
 
         if hasattr(obj, "__dict__"):
             # Use the __dict__ for instance attributes if available
@@ -180,7 +177,6 @@ def cached(
     """Caching decorator that only creates cache entries when needed."""
 
     def decorator(func: Callable[..., CACHE_T]) -> Callable[..., CACHE_T]:
-
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> CACHE_T:
             try:
