@@ -12,6 +12,7 @@ dependencies = [
     "pydantic>=2.11.4",
     "instructor>=1.8.2",
     "burr>=0.40.2",
+    "litellm>=1.71.2",
 ]
 
 [project.optional-dependencies]
