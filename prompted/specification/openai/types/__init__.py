@@ -1,0 +1,3 @@
+"""
+prompted.specification.openai.types
+"""
