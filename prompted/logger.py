@@ -10,7 +10,7 @@ from typing import Literal
 # that does not mean it is not fast.
 # we are speed.
 
-console = Console()
+_console = Console()
 
 
 class RichMarkupFilter(logging.Filter):
@@ -28,12 +28,12 @@ class RichMarkupFilter(logging.Filter):
         return True  
 
 
-def setup_logging() -> logging.Logger:
+def _setup_logging() -> logging.Logger:
     logger = logging.getLogger("prompted")
 
     handler = RichHandler(
         level=logging.WARNING,  
-        console=console,  
+        console=_console,  
         rich_tracebacks=True,
         show_time=False,
         show_path=False,
@@ -59,19 +59,18 @@ def _get_logger(module : str | None = None) -> logging.Logger:
 def verbosity(
     level: Literal["debug", "info", "warning", "error", "critical"],
 ) -> None:
-    logger = logging.getLogger("prompted")
+    logger = _get_logger()
     logger.setLevel(level.upper())
     # Update all handlers' levels to match
     for handler in logger.handlers:
         handler.setLevel(level.upper())
 
 
-_logger = setup_logging()
+_logger = _setup_logging()
 """Singleton logger for the prompted library."""
 
 
 __all__ = [
-    "setup_logging",
     "verbosity",
     "_get_logger",
 ]
