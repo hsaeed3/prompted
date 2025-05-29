@@ -1,5 +1,5 @@
 """
-prompted.types.openai.responses
+prompted.specifications.openai.types.responses
 
 Contains type definitions for outputs in the
 OpenAI chat completions specification (referred to as

@@ -1,5 +1,5 @@
 """
-prompted.types.openai.messages
+prompted.specifications.openai.types.messages
 
 Contains type definitions used to define messages in the
 OpenAI specification within the `prompted` framework.
