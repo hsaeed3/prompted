@@ -1,6 +1,8 @@
 .ruff_cache/
 .cursorrules
 .dev/
+.claude/
+Claude.md
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
