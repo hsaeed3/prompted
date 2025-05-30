@@ -1,5 +1,5 @@
 """
-prompted.resources.pydantic_models
+prompted.resources.utils.pydantic_models
 """
 
 from docstring_parser import parse
@@ -22,8 +22,8 @@ from pydantic import (
     Field,
 )
 
-from .._cache import cached, make_hashable, TYPE_MAPPING
-from ..logger import _get_logger
+from ..._cache import cached, make_hashable, TYPE_MAPPING
+from ...logger import _get_logger
 
 logger = _get_logger(__name__)
 

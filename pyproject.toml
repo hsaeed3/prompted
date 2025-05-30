@@ -13,6 +13,7 @@ dependencies = [
     "instructor>=1.8.2",
     "burr>=0.40.2",
     "litellm>=1.71.2",
+    "monkeytype>=23.3.0",
 ]
 
 [project.optional-dependencies]
@@ -100,3 +101,7 @@ known-first-party = ["openai", "tests"]
 "scripts/**.py" = ["T201", "T203"]
 "tests/**.py" = ["T201", "T203"]
 "examples/**.py" = ["T201", "T203"]
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"

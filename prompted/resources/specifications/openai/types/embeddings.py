@@ -1,5 +1,5 @@
 """
-prompted.specifications.openai.types.embeddings
+prompted.resources.specifications.openai.types.embeddings
 """
 
 from typing import List, Literal

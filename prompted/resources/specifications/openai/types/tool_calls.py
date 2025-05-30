@@ -1,5 +1,5 @@
 """
-prompted.specifications.openai.types.tool_calls
+prompted.resources.specifications.openai.types.tool_calls
 """
 
 from typing import Literal

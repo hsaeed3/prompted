@@ -1,5 +1,5 @@
 """
-prompted.specifications.openai.types.tools
+prompted.resources.specifications.openai.types.tools
 """
 
 from typing import Dict, Literal

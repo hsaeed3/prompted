@@ -1,5 +1,5 @@
 """
-prompted.resources.markdown
+prompted.resources.utils.markdown
 
 Contains various resources for converting different
 filetypes and data types into markdown strings.
@@ -21,8 +21,8 @@ from typing_extensions import TypedDict
 import typing_inspect as ti
 from pydantic import BaseModel
 
-from .._cache import cached, make_hashable
-from ..logger import _get_logger
+from ..._cache import cached, make_hashable
+from ...logger import _get_logger
 
 logger = _get_logger(__name__)
 
