@@ -21,6 +21,7 @@ dependencies = [
     "docstring-parser>=0.16",
     "instructor>=1.8.3",
     "litellm>=1.72.2",
+    "pydantic-graph>=0.2.16",
     "typing-inspect>=0.9.0",
 ]
 
