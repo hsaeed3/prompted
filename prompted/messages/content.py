@@ -18,6 +18,7 @@ __all__ = (
     "ToolContent",
     "RefusalContent",
     "Content",
+    "ContentType",
 )
 
 
@@ -389,3 +390,10 @@ class Content(
     root: Union[
         TextContent, ImageContent, AudioContent, ToolContent, RefusalContent
     ] = Field(discriminator="type")
+
+
+# NOTE:
+# ALIAS HERE!!!!I!I!I!I!!)!)!!) LOOKIE LOOKIE HERE!!!
+ContentType = TypeAliasType("ContentType", Union[str, Content])
+"""Type definition for the accepted input format within the `content` key
+of chat messages within the `prompted` framework."""
