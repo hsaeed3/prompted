@@ -1,6 +1,9 @@
 .ruff_cache/
 .cursorrules
 .dev/
+# Personal Dev Folder
+# dont mind this
+zzzz/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
