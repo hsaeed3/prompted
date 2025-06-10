@@ -1,1 +1,0 @@
-"""prompted.types.message.message"""
